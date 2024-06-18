@@ -1,0 +1,815 @@
+<?xml version="1.0"?>
+<!-- This template is for creating an Internet Draft using xml2rfc,
+     which is available here: http://xml.resource.org. -->
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd" [
+<!-- One method to get references from the online citation libraries.
+     There has to be one entity for each item to be referenced.
+     An alternate method (rfc include) is described in the references. -->
+
+<!ENTITY RFC1034 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.1034.xml">
+<!ENTITY RFC2182 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.2182.xml">
+<!ENTITY RFC6891 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.6891.xml">
+
+]>
+<!--<?xml-stylesheet type='text/xsl' href='rfc2629.xslt' ?> -->
+<!-- used by XSLT processors -->
+<!-- For a complete list and description of processing instructions (PIs),
+     please see http://xml.resource.org/authoring/README.html. -->
+<!-- Below are generally applicable Processing Instructions (PIs) that most I-Ds might want to use.
+     (Here they are set differently than their defaults in xml2rfc v1.32) -->
+<?rfc strict="yes" ?>
+<!-- give errors regarding ID-nits and DTD validation -->
+<!-- control the table of contents (ToC) -->
+<?rfc toc="yes"?>
+<?rfc tocappendix="yes"?>
+<!-- generate a ToC -->
+<?rfc tocdepth="3"?>
+<!-- the number of levels of subsections in ToC. default: 3 -->
+<!-- control references -->
+<?rfc symrefs="yes"?>
+<!-- use symbolic references tags, i.e, [RFC2119] instead of [1] -->
+<?rfc sortrefs="yes" ?>
+<!-- sort the reference entries alphabetically -->
+<!-- control vertical white space
+     (using these PIs as follows is recommended by the RFC Editor) -->
+<?rfc compact="yes" ?>
+<!-- do not start each main section on a new page -->
+<?rfc subcompact="no" ?>
+<!-- keep one blank line between list items -->
+<!-- end of list of popular I-D processing instructions -->
+<?rfc comments="no" ?>
+<?rfc inline="yes" ?>
+
+<rfc category="info" docName="draft-zhang-dnsop-ns-selection-00" ipr="trust200902">
+
+  <front>
+    <title>Secure Nameserver Selection Algorithm for DNS Resolvers</title>
+
+    <author fullname="Fenglu Zhang" initials="F" surname="Zhang">
+      <organization>Tsinghua University</organization>
+      <address>
+          <postal>
+          <street>Shuangqing Rd, Haidian District</street>
+          <city>Beijing</city>
+          <region></region>
+          <code>100084</code>
+          <country>P. R. China</country>
+        </postal>
+        <email>zfl20@tsinghua.org.cn</email>
+      </address>
+    </author>
+
+    <author fullname="Linjian Song" initials="L" surname="Song">
+      <organization>Alibaba Cloud</organization>
+      <address>
+          <postal>
+          <street>Wangjing Qiyang Rd, Chaoyang District</street>
+          <city>Beijing</city>
+          <region></region>
+          <code>100102</code>
+          <country>P. R. China</country>
+        </postal>
+        <email>linjian.slj@alibaba-inc.com</email>
+      </address>
+    </author>
+
+    <author fullname="Shumon Huque" initials="S." surname="Huque">
+      <organization>Salesforce</organization>
+      <address>
+        <postal>
+          <street>415 Mission Street, 3rd Floor</street>
+          <city>San Francisco</city>
+          <region>CA</region>
+          <code>94105</code>
+          <country>United States of America</country>
+        </postal>
+        <email>shuque@gmail.com</email>
+      </address>
+    </author>
+
+    <date day="16" month="06" year="2024"/>
+    <!-- Meta-data Declarations -->
+
+    <area>Operations and Management Area</area>
+    <workgroup>Internet Engineering Task Force</workgroup>
+
+    <!-- <keyword>dns</keyword> -->
+
+    <abstract>
+      <t>
+      Nameserver selection algorithms employed by DNS resolvers are
+      not currently standardized in the DNS protocol, and this has lead
+      to variation in the  methods being used by implementations in the
+      field. Recent research has shown that some of these implementations
+      suffer from significant security vulnerabilities. This document
+      provides an in-depth analysis of nameserver selection utilized by
+      mainstream DNS software and summarizes uncovered vulnerabilities.
+      Furthermore, it provides recommendations to defend against these
+      security and availability risks. Designers and operators of recursive
+      resolvers can adopt these recommendations to improve the security and
+      stability of the DNS.
+      </t>
+    </abstract>
+
+  </front>
+
+  <middle>
+
+    <section title="Introduction">
+
+    <t>The robustness of the Domain Name System (DNS) is crucial for
+    the function of the Internet. The increasing trend of relying
+    on large DNS providers further underscores this significance.
+    To achieve high resilience, DNS specifications mandate deploying
+    load balancing mechanisms across DNS nameservers, which are
+    responsible for providing the authoritative answers to DNS queries.
+     <xref target="RFC1034"/> REQUIRES that “every zone be available on at least
+    two servers.” <xref target="RFC2182"/> further says that “nameservers MUST be
+    placed at both topologically and geographically dispersed locations.”</t>
+
+    <t>However, <xref target="RFC1034"/> vaguely suggests that resolvers should “find the
+      best server to ask”, and no specification provides an exact algorithm
+      for implementing this. Typically, resolvers aim to choose the nameserver
+      with optimal performance, thereby minimizing query latency and enhancing
+      overall efficiency <xref target="Yu12"/> <xref target="Mueller17"/>.
+    </t>
+    <t>Lack of standardization in this area can lead to DNS implementations
+      choosing poor methods that have significant security issues.
+      By exploiting properties of these selection algorithms, attackers can
+      potentially disrupt the load balancing of nameservers. Such disruptions
+      can degrade the performance of DNS services, leading to a series of
+      security concerns including denial-of-service (DoS) attacks, traffic
+      hijacking, and cache poisoning <xref target="Dai21"/>. These
+      vulnerabilities underscore the necessity for a secure implementation
+      of nameserver selection. Additionally, a selection
+      process may include vulnerable data structures, thereby enabling
+      attackers to significantly degrade the performance of resolvers.</t>
+    <t>
+      Furthermore, no specification describes how resolvers should retry and
+      failover to alternate nameservers, when the selected nameserver is
+      unavailable or providing an error or unusable answer. Experience has
+      shown that there are poorly implemented DNS resolvers in the field
+      that do not employ robust retry and failover algorithms, which can
+      lead to availability problems when some of the authoritative servers
+      for a zone are unresponsive or giving erroneous responses.
+    </t>
+
+      <t>This document offers guidance on developing secure nameserver
+        selection algorithms for DNS resolvers. It starts by reviewing
+        the nameserver selection implemented by widely used recursive DNS
+        software (I1 - I6). Subsequently, the document details identified
+        vulnerabilities (V1 - V4), based on existing research, emphasizing
+        the security gaps in current practices. Lastly, the document recommends
+        options (R1- R3) to address these issues, emphasizes the requirement
+        for resolvers to have robust retry and failover behavior, and
+        restates the requirement for resolvers to sensibly bound their
+        work.
+      </t>
+
+    </section>
+
+    <section anchor="Threats" title="Threats of Exploiting Nameserver Selection">
+
+      <t>To ensure stability and robustness, DNS specifications <xref target="RFC1034"/> <xref target="RFC2182"/>
+        require a “built-in” load balancing mechanism for nameservers.
+        Specifically, a domain name should be configured with multiple
+        candidate nameservers, including both levels of NS records and IP addresses.
+        Such candidates can be placed at both topologically and geographically
+        dispersed locations. An example is shown in Figure 1. Typically, a recursive
+        resolver measures the candidate nameservers while resolving the domain
+        name and selects the next candidate with the best performance from its
+        aspect (e.g., with the lowest latency).</t>
+
+
+    <figure anchor="response_example" title=" Example of NS records and IP addresses"><artwork><![CDATA[
+
+        ---
+        ;; ANSWER SECTION:
+        example.com. 86400 IN NS ns1-example.com.
+        example.com. 86400 IN NS ns2-example.com.
+
+        ...
+
+        ;; ADDITIONAL SECTION
+        ns1-example.com. 172800 IN A 100.1.1.1
+        ns1-example.com. 172800 IN A 100.1.1.2
+        ...
+        ns2-example.com. 172800 IN A 200.1.1.1
+        ns2-example.com. 172800 IN A 200.1.1.2
+        ...
+        ---
+
+    ]]></artwork></figure>
+
+
+    <t>The selection algorithm of DNS resolvers for appropriate nameservers
+      plays a critical role in DNS security. When attackers exploit vulnerabilities
+      in the selection, they gain the ability to divert legitimate DNS traffic
+      toward a specified nameserver (e.g., ns1-example.com or an IP address
+      like 100.1.1.1, as shown in Figure 1). This manipulation can lead to
+      severe security issues:</t>
+
+    <t>One of the most straightforward consequences is the redirection of all
+      legitimate traffic to a targeted server, causing overloads that bypass
+      traditional DoS defense mechanisms designed to detect and filter out
+      malicious traffic. It allows attackers to evade detection with ease,
+      since benign users generate all redirected traffic <xref target="Gupta17"/> <xref target="Mirkovic04"/> <xref target="Zargar13"/>.
+      Beyond overloading DNS nameservers, attackers can also disrupt the load
+      balancing of upper-layer applications, which often rely on diverse nameserver
+      responses to distribute traffic efficiently <xref target="Zhang23"/>.</t>
+
+    <t>Moreover, exploiting nameserver selection lays the groundwork for
+      further attacks, such as DNS cache poisoning and traffic hijacking.
+      This attack narrows the query path to a single, attacker-controlled route,
+      simplifying the manipulation of DNS responses. Researchers have highlighted
+      that disrupting load balancing through nameserver selection manipulation
+      is a critical step in executing advanced attacks, including acquiring
+      fraudulent TLS certificates <xref target="Dai21"/>.</t>
+    <t>
+        DNSSEC can successfully detect cache poisoning and other response
+        falsification attacks. However, even if DNS resolvers all implement
+        DNSSEC validation, these attacks are still quite practical today
+        given the poor uptake to date of DNSSEC signing in deployed
+        authoritative DNS infrastructure.
+    </t>
+    <t>In section 4, this document will summarize various attacks that exploit
+      the implementation of nameserver selection. Such attacks can target both
+      sides of nameservers and resolvers.</t>
+
+    </section>
+
+    <section title="Implementations" anchor="Implementations">
+
+    <t>Before examining the specific vulnerabilities, this document reviews
+      widely used DNS implementations by referring to published research
+      <xref target="Zhang23"/><xref target="Zhang22"/><xref target="Yu12"/><xref target="Mueller17"/>.
+      It includes four open-source
+      recursive DNS software (I1 - I4) from white-box view, and one proprietary
+      DNS software (I5) from black-box view. Additionally, it delves into the
+      examination of open resolvers in the wild (I6).</t>
+
+      <section title="I1: BIND9" anchor="I1">
+        <t>BIND9 <xref target="BIND9"/> utilizes a strategy to select the nameserver with the
+          lowest statistical latency, through the maintenance of the Smoothed
+          Round Trip Time (SRTT) to each nameserver. It updates the SRTT for a
+          nameserver after each query based on the latency, leveraging the
+          algorithm of Exponentially Weighted Moving Average (EWMA) <xref target="Hunter86"/>.
+          Further, BIND9 performs a Bubble Sort to rank candidate nameservers
+          by their SRTT and selects the nameserver with the lowest SRTT for
+          query assignment. Initially, nameservers that have not yet been queried
+          are assigned a random SRTT value ranging from 1 to 32 milliseconds.
+          This range facilitates early selection and rapid SRTT updating, allowing
+          BIND9 to evaluate all candidates at the beginning. Additionally,
+          BIND9 decreases the SRTTs of unselected nameservers after each query,
+          enhancing their likelihood of future selection.</t>
+
+        <t>In its optimization efforts, BIND9 penalizes nameservers with poor
+          performance. Specifically, its nameserver selection algorithm assigns
+          penalties for response failures, including timeouts and DNSSEC validation
+          errors. When such failures are detected, BIND9 increases the affected
+          nameserver's SRTT, effectively lowering its likelihood of being chosen
+          for future queries. Furthermore, BIND9 utilizes a "lame cache" mechanism
+          to identify and avoid selecting nameservers that fail to provide correct
+          delegation information, known as "lame servers" <xref target="ISC-LAME"/>. This is
+          achieved by recording lame servers associated with specific &lt;QNAME, QTYPE&gt;
+          tuples. Once a nameserver is marked as lame, BIND9 will exclude it from
+          selection for a predetermined period defined by the 'lame-ttl' setting.</t>
+
+        <t>A notable feature of BIND9's design is sharing the performance status of
+          nameservers across all delegated domains. For instance, if domain A and
+          domain B are delegated to the same nameserver, the SRTT status updated
+          from resolving queries for domain A will also affect the resolution process
+          for domain B. This shared status mechanism, which operates at the IP address
+          level, may be beneficial to BIND9's overall efficiency. However, as discussed
+          in Section 4, this approach can cause certain vulnerabilities.</t>
+
+      </section>
+
+      <section title="I2: PowerDNS Recursor" anchor="I2">
+
+        <t>Like BIND9, PowerDNS Recursor <xref target="PowerDNS"/> maintains a shared status for each
+        nameserver. PowerDNS also dynamically updates the SRTT using the EWMA. Different
+        from BIND9, PowerDNS globally shares the status at the NS record level instead
+        of the IP address level. While processing each query, PowerDNS employs a Stable
+        Sort to rank the candidate nameservers, selecting the one with the lowest SRTT
+        to send a query. To facilitate rapid measurement of all candidates, the initial
+        SRTT value is set at 0 milliseconds. Besides, PowerDNS ensures all nameservers
+        are periodically probed. This is achieved by applying a decay factor to the SRTT
+        of all servers during each query. It also resets the SRTT status of a nameserver
+        periodically to maintain up-to-date records.</t>
+
+        <t>PowerDNS also implements a strategy to penalize nameservers that fail to respond.
+          In cases where a query times out, PowerDNS applies a fixed penalty to the SRTT
+          of the corresponding nameserver. Furthermore, when other types of failures are
+          detected, such as malformed responses, PowerDNS marks the server as throttled.
+          This action temporarily removes the server from the pool of candidates for query
+          resolution.</t>
+
+      </section>
+      <section title="I3: Knot Resolver" anchor="I3">
+        <t>Knot Resolver <xref target="Knot"/> also maintains the shared SRTT of nameservers but utilizes
+          a unique method for selecting nameservers. Specifically, it updates the SRTT of
+          a nameserver using Karn's Algorithm <xref target="Karn87"/>. To rank the candidate nameservers,
+          Knot Resolver defines a specific comparison function. This function takes into
+          account several factors: preference is given to nameservers with IPv6 addresses,
+          those that haven’t been tried before, those with fewer detected failures, and
+          those with the lowest latency. After executing a Quick Sort with the comparison
+          function, Knot Resolver leverages the Epsilon-Greedy Algorithm <xref target="Sutton98"/> to
+          select a nameserver to query. This algorithm balances between exploring different
+          nameservers and exploiting the one with the highest priority. In approximately 5%
+          of the cases, the algorithm will randomly select a nameserver from all available
+          candidates, which allows for the exploration of different servers. In the remaining
+          95% of cases, the algorithm chooses the nameserver with the highest priority,
+          ensuring that the most optimal server is typically selected for queries.</t>
+      </section>
+      <section title="I4: Unbound" anchor="I4">
+        <t>Unbound <xref target="Unbound"/>, unlike other software, implements a special strategy for selecting
+          a nameserver. This approach involves maintaining an SRTT for each nameserver, which
+          is updated using Karn's Algorithm. Additionally, Unbound avoids nameserver failures
+          by either adding a penalty to the SRTT or, in more severe cases, removing the nameserver
+          from consideration. Initially, each untried nameserver is assigned an SRTT of 376ms.
+          However, Unbound's selection process is not solely based on the lowest SRTT. It
+          randomly selects from all candidates and only excludes a nameserver when its SRTT
+          exceeds the least-latent one by more than 400ms. This default behavior can be customized,
+          allowing Unbound to select the best nameserver according to a configured probability.</t>
+
+        <t>A further unique aspect of Unbound is maintaining nameserver status for each
+          delegation individually. Different from other software that shares nameserver
+          status across all delegated domains, Unbound records this information separately
+          for each domain. This domain-specific status ensures that the resolution for one
+          domain does not impact the nameserver status for other domains.</t>
+
+      </section>
+      <section title="I5: Microsoft DNS" anchor="I5">
+        <t>There is limited research on Microsoft DNS, as it is a component of the closed-source
+          operating system, Windows Server <xref target="MicrosoftDNS"/>. Through software simulation, <xref target="Zhang23"/>
+          reveals that Microsoft DNS records the status of non-responsive nameservers. This status
+          is shared across all delegated domains at the IP address level.</t>
+      </section>
+      <section title="I6: Open Resolvers in the Wild" anchor="I6">
+        <t>Previous studies have analyzed the selection strategies employed by real-world open
+          resolvers from a black-box perspective <xref target="Yu12"/><xref target="Mueller17"/>. Investigations into the
+          patterns of outgoing DNS queries reveal that a considerable number of open resolvers
+          prioritize nameservers based on the lowest latency. This approach to server selection
+          mirrors the methodologies implemented in I1 - I4. Moreover, a presented research <xref target="Zhang23"/>
+          introduces a large-scale analysis, affirming the prevalent implementation of sharing
+          nameserver statuses. This strategy is similar to the practices observed in I1 - I3.</t>
+      </section>
+
+    </section>
+
+
+    <section title="Vulnerabilities" anchor="Vulnerabilities">
+
+      <t>This section summarizes four revealed vulnerabilities (V1-V4)
+        targeting nameserver selection, which can affect current
+        implementations of recursive resolvers.</t>
+
+      <section title="V1: Disablance Attack" anchor="V1">
+      <t><xref target="Zhang23"/> reveals an attack named Disablance (Load Balancing Disabler)
+        to disrupt DNS load balancing at a low cost. Consequently, attackers can
+        efficiently overload authoritative DNS servers with legitimate traffic,
+        and even further disrupt DNS-based load balancing of upper-layer applications.
+        Also, the uncovered attack derandomizes the NS selection and lowers the bar
+        of traffic hijacking and cache poisoning.</t>
+
+      <t>This vulnerability stems from vulnerabilities in recursive resolvers and
+        authoritative nameservers, where attackers exploit recursive DNS software's
+        globally shared nameserver selection status and nameservers' disregard for
+        domains outside their authority. To execute the attack, adversaries create
+        non-responsive DNS queries directed at a target resolver to make the resolver
+        record the failure of nameservers. This is achieved by setting up DNS records
+        for a domain under their control to point toward the hosting provider's
+        nameservers but excluding the targeted nameserver. For example, a victim
+        domain is assigned multiple nameservers (N1 - Nm). Then attackers’ domain
+        is delegated to N2 - Nm, leaving N1 as the targeted nameserver. Following this,
+        attackers send several DNS queries to the targeted resolver. These queries are
+        ignored by the nameservers due to the lack of authority over the attacker's domain,
+        leading recursive resolvers to deem these nameservers (N2 - Nm) as non-responsive,
+        thereby deprioritizing them in future resolutions. As a result, DNS requests from
+        legitimate users will overwhelm the remaining nameserver (N1) for a period.</t>
+
+      <t>The risk posed by Disablance attacks is significant and widespread.
+        First, three mainstream DNS implementations—BIND9 (I1), PowerDNS (I2),
+        and Microsoft DNS (I5)—have been identified as exploitable to Disablance
+        attacks. Furthermore, the analysis has revealed that 22.24% of the top 1
+        million Fully Qualified Domain Names (FQDNs) and 3.94% of the top 1 million
+        Second-Level Domains (SLDs) are potential targets of Disablance. Additionally,
+        37.88% of tested open resolvers, along with 10 out of 14 well-known public
+        DNS services, including Cloudflare and Quad9, are vulnerable to Disablance attacks.</t>
+      </section>
+
+
+      <section title="V2: Subverting SRTT Algorithm" anchor="V2">
+
+      <t><xref target="Hay13"/> presents an attack to manipulate BIND9's (I1) NS selection, enabling
+        adversaries to affect the choice of nameserver queried by a resolver predictably.
+        This vulnerability facilitates the manipulation of NS selections, thereby
+        enhancing the effectiveness of subsequent attacks, such as cache poisoning
+        and traffic redirection.</t>
+
+      <t>The management of shared nameserver status and its approach to decreasing the
+        SRTT for NS selection makes the attack possible. Specifically, BIND9 lowers
+        the SRTT for less frequently used nameservers to diversify future NS choices,
+        rather than consistently choosing the fastest candidate. For example, a victim
+        domain is assigned multiple nameservers (N1 - Nm). To force the resolver to
+        query N1 predictably, attackers set up a domain delegation involving a series
+        of non-open nameservers (C1 - Cn), their nameserver (A), and the target nameserver (N1).
+        Then, attackers ask for the resolution of their domain, and the resolver queries C1 - Cn
+        and then A. Each query to the non-open nameservers incrementally lowers the SRTT of
+        unqueried candidates, including N1. When A responds to its query, it halts further
+        domain resolution, preventing N1 from being updated in its SRTT. In total, the SRTT
+        of N1 has been reduced by n+1 times. By ensuring a large number of intermediary
+        nameservers (n), attackers can degrade N1's selection priority, effectively redirecting
+        subsequent queries to N1 and disrupting BIND9's NS selection randomness.</t>
+      </section>
+
+      <section title="V3: Spoofed Fragment" anchor="V3">
+
+      <t><xref target="Herzberg12"/> uncovers an attack for compromising the randomness of
+        BIND9's (I1) NS selection mechanism through the usage of fragmented DNS
+        packets. Similar to the impact of V2, this attack disrupt the non-deterministic
+        of the NS selection, reducing the likelihood of resolvers querying alternative
+        nameservers. As V1 and V2, this vulnerability can also lay the groundwork for
+        more severe attacks.</t>
+
+      <t>This vulnerability stems from the way BIND9 punishes the malformed responses.
+        For example, a victim domain is assigned multiple nameservers (N1 - Nm).
+        The attack begins with the target resolver being induced to generate of large
+        DNS responses, which are split into fragments. Attackers, operating from an IP
+        spoofing position, subsequently send crafted second fragments for all nameservers
+        except the intended target (N2 - Nm, with N1 being the target), each containing
+        an arbitrary byte along with the standard headers. These malicious fragments are
+        designed to pair with the legitimate first fragment, creating a corrupted DNS packet.
+        Hence, the resolver marks the status of N2 - Nm as faulty, continuously selecting
+        N1 for future queries. Consequently, this manipulation allows attackers to control
+        the choice of nameserver.</t>
+      </section>
+
+      <section title="V4: Lame Cache" anchor="V4">
+
+      <t><xref target="CVE2021-25219"/> details an efficient attack toward BIND9’s (I1) lame cache,
+        which is a component in the process of nameserver selection. This attack differs
+        from the above attacks (V1 - V3) that disrupt the load balancing of nameservers.
+        Instead, it exploits a special cache of BIND9 acting as a recursive resolver.
+        As a result, the attack consumes the resources of a resolver and further
+        degrades the performance efficiently.</t>
+
+      <t>The core of this vulnerability lies in BIND9's handling of the lame cache.
+        BIND9 identifies and records a lame nameserver, which cannot provide correct
+        information on domain delegation <xref target="ISC-LAME"/>. Upon identifying a lame nameserver,
+        BIND9 will avoid selecting this nameserver for a predetermined period,
+        determined by the configurable "lame-ttl" parameter, which defaults to 600 seconds.
+        However, the method of recording this information—using a &lt;QNAME, QTYPE&gt;
+        tuple for each entry—leaves it vulnerable. Attackers can initiate a series of
+        malformed responses from nameservers, causing the resolver to devote most of
+        its CPU time to managing and checking the lame cache. This flawed implementation
+        allows its internal data structures to expand excessively, potentially leading
+        to considerable processing delays for incoming client queries.</t>
+
+      </section>
+    </section>
+
+
+    <section title="Recommendations" anchor="Recommendations">
+      <t>In this section, this document presents recommendations (R1 - R3) to address
+          the vulnerabilities discussed earlier. To provide practical solutions,
+          it references the current implementations of mainstream recursive DNS software
+          (Unbound and Knot Resolver) rather than specifying an implementation from scratch.</t>
+
+      <section title="R1: Balance between Optimization and Exploration" anchor="R1">
+
+      <t>Most implementations, including I1, I2, I5, and most of I6, deterministically
+        select the candidate nameserver with the highest priority. This approach potentially
+        allows attackers to manipulate the status of nameservers, effectively eliminating
+        the possibility of querying certain candidates. Addressing this, a balanced approach
+        to nameserver selection can significantly mitigate vulnerabilities (V1 - V3)
+        by reducing the predictability exploited by attackers.</t>
+
+      <t>We recommend the strategies employed by Knot Resolver and Unbound, which strike
+        a balance between optimization and exploration. Specifically, Knot Resolver implements
+        the Epsilon-Greedy Algorithm for nameserver selection. This algorithm maintains
+        a balance between exploring various nameservers and exploiting the one deemed to
+        have the highest priority. In approximately 5% of queries, it will randomly select
+        a nameserver from the pool of available candidates. This randomness disrupts the
+        deterministic selection process that attackers might exploit. Similarly, Unbound's
+        selection mechanism does not rely solely on the shortest SRTT. It introduces randomness
+        by selecting among all candidates and only excluding a nameserver if its SRTT exceeds
+        the least-latent one by more than 400 milliseconds. These approaches render efforts
+        to manipulate nameserver selection less effective and can be implemented with minimal
+        modifications to existing software that shares nameserver status.</t>
+
+      </section>
+
+      <section title="R2: Independent Nameserver Status" anchor="R2">
+        <t>This document recommends maintaining an independent nameserver status for each
+          domain since the shared status has been identified as contributing to two
+          vulnerabilities (V1 and V2). Most current implementations manage a shared
+          nameserver status across all delegated domains, which presents a significant
+          security risk. The delegation relationship observed by resolvers does not guarantee
+          that a domain is hosted on a designated nameserver, enabling attackers to manipulate
+          the priority of a nameserver by crafting their own domains' configurations.
+          Therefore, this document recommends assigning an independent status to every
+          domain to enhance security measures. Currently, Unbound utilizes this strategy,
+          rendering it immune to the two vulnerabilities.</t>
+
+      <t>Effective cache management can avoid the resource overconsumption associated
+        with maintaining independent nameserver statuses. One of the possible reasons
+        for a shared nameserver status is to conserve resources and protect against
+        DoS attacks. To prove the feasibility of our recommendation, this document
+        includes an experiment. We configured a machine with a 16-core CPU and 16 GB
+        of memory, installing Unbound version 1.13.1, which managed independent nameserver
+        statuses. The experiment simulated an attack aiming to overconsume resolver
+        resources. We created a wildcard domain with five NS records and overload the
+        resolver with queries for random subdomains at a rate of 3,000 QPS over a
+        12-hour period. The experiment resulted in a low memory consumption of
+        approximately 92 MB, with no service interruptions detected in Unbound.
+        These findings indicate that adopting an independent nameserver status does
+        not inherently create a vulnerability to DoS attacks.</t>
+
+      </section>
+
+      <section title="R3: Secure Cache of Nameserver Performance" anchor="R3">
+        <t>This document proposes a secure data structure for DNS caches to mitigate
+          vulnerabilities targeting recursive resolvers (V4). NS selection typically
+          relies on cached information regarding the performance of nameservers.
+          However, flawed implementations may allow adversaries to disrupt the
+          performance of recursive resolvers, increasing the risk of DoS attacks.
+          To mitigate the risk, this document advises against inefficient data
+          structures and unnecessary fine-grained information within the recursive
+          cache.</t>
+
+        <t>By integrating the above options, DNS resolvers can enhance their defense
+          against manipulation of NS selection, thereby preserving the robustness and
+          stability of DNS operation and contributing to overall Internet security.</t>
+
+      </section>
+
+    </section>
+
+  <section title="Robust Retry and Failover">
+    <t>
+        Implicit in the discussion of nameserver selection algorithms
+        in this document is the assumption that all DNS resolvers should
+        automatically retry and failover to other nameservers when they
+        encounter a nameserver that is unresponsive or providing an
+        erroneous response.
+    </t>
+    <t>
+        This document re-emphasizes the criticality of this requirement
+        in DNS resolver infrastructure. Not only must resolvers have
+        a robust retry and failover algorithm, but no middlebox or
+        network appliance interposed in the traffic path of resolvers
+        should interfere with their ability to perform retry and failover.
+        Experience has shown that there is a small percentage of deployed
+        DNS resolvers in the field that do not robustly failover to alternate
+        nameservers leading to availability issues.
+    </t>
+    <t>
+        Some of the specific conditions under which a DNS resolver should
+        retry other nameservers for a zone include an unresponsive namerserver,
+        a nameserver giving an erroneous response (any response code other
+        than NOERROR or NXDOMAIN), a nameserver giving responses that cannot
+        be accepted, such as responses with missing DNSSEC signatures when
+        they were expected to be signed, responses with bogus or expired
+        signatures, etc.
+    </t>
+  </section>
+
+  <section title="Bounding Work of the Resolver">
+    <t>
+        Incorrectly or maliciously configured authoritative DNS
+        infrastructure can cause DNS resolvers to do more work than
+        they reasonably expected to do to resolve a name, and lead to
+        potential denial of service attacks. Hence, resolvers should
+        take concrete steps to sensibly bound the amount of work they
+        are willing to perform (or the time spent doing that work) to
+        service a request. This is a general principle that applies to
+        the entirety of a resolvers work, not just to the work needed
+        for nameserver selection. We restate it here because implementers
+        sometimes forget or neglect this important principle.
+    </t>
+  </section>
+
+  <section title="Security Considerations">
+    <t> TBD</t>
+  </section>
+
+    <section title="IANA considerations">
+
+    <t>This document contains no actions for IANA.</t>
+
+    </section>
+
+   <section title="Acknowledgments">
+    <t>Thanks to all the people who reviewed the draft and gave
+      comments and support.</t>
+
+  </section> <!-- Acknowledgments -->
+  </middle>
+
+  <back>
+
+    <references title="References">
+      &RFC1034; &RFC2182; &RFC6891;
+
+    <reference anchor="Gupta17" target="https://doi.org/10.1007/s00521-016-2317-5">
+          <front>
+            <title>Taxonomy of DoS and DDoS attacks and desirable defense mechanism in a Cloud computing environment</title>
+            <author initials="B.B." surname="Gupta" fullname="B.B. Gupta">
+              <organization>XYZ University</organization>
+            </author>
+            <author initials="O.P." surname="Badve" fullname="O.P. Badve">
+              <organization>ABC Corporation</organization>
+            </author>
+            <date year="2017"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1007/s00521-016-2317-5"/>
+        </reference>
+    <reference anchor="Mirkovic04" target="https://doi.org/10.1145/997150.997156">
+          <front>
+            <title>A Taxonomy of DDoS Attack and DDoS Defense Mechanisms</title>
+            <author initials="J." surname="Mirkovic" fullname="J. Mirkovic">
+              <organization>UC Santa Barbara</organization>
+            </author>
+            <author initials="P." surname="Reiher" fullname="P. Reiher">
+              <organization>UC Santa Barbara</organization>
+            </author>
+            <date year="2004" month="April"/>
+          </front>
+        </reference>
+
+     <reference anchor="Zargar13" target="https://doi.org/10.1109/SURV.2013.031413.00127">
+          <front>
+            <title>A Survey of Defense Mechanisms Against Distributed Denial of Service (DDoS) Flooding Attacks</title>
+            <author initials="S.T." surname="Zargar"><organization>Organization Name</organization></author>
+            <author initials="J." surname="Joshi"><organization>Organization Name</organization></author>
+            <author initials="D." surname="Tipper"><organization>Organization Name</organization></author>
+            <date year="2013"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1109/SURV.2013.031413.00127"/>
+
+        </reference>
+      <reference anchor="Dai21" target="https://doi.org/10.1145/3460120.3484815">
+          <front>
+            <title>Let's Downgrade Let's Encrypt</title>
+            <author initials="T." surname="Dai"><organization>Organization Name</organization></author>
+            <author initials="H." surname="Shulman"><organization>Organization Name</organization></author>
+            <author initials="M." surname="Waidner"><organization>Organization Name</organization></author>
+            <date year="2021"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1145/3460120.3484815"/>
+        </reference>
+      <reference anchor="Mueller17" target="https://www.isi.edu/~johnh/PAPERS/Mueller17b.pdf">
+          <front>
+            <title>Recursives in the Wild: Engineering Authoritative DNS Servers</title>
+            <author initials="M." surname="Müller"><organization>Organization Name</organization></author>
+            <author initials="G.C.M." surname="Moura"><organization>Organization Name</organization></author>
+            <author initials="R. de O." surname="Schmidt"><organization>Organization Name</organization></author>
+            <author initials="J." surname="Heidemann"><organization>Organization Name</organization></author>
+            <date year="2017" month="November"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1145/3131365.3131366"/>
+        </reference>
+
+      <reference anchor="Ager10" target="https://doi.org/10.1145/1879141.1879144">
+          <front>
+            <title>Comparing DNS resolvers in the wild</title>
+            <author initials="B." surname="Ager"><organization>Organization Name</organization></author>
+            <author initials="W." surname="Mühlbauer"><organization>Organization Name</organization></author>
+            <author initials="G." surname="Smaragdakis"><organization>Organization Name</organization></author>
+            <author initials="S." surname="Uhlig"><organization>Organization Name</organization></author>
+            <date year="2010"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1145/1879141.1879144"/>
+        </reference>
+      <reference anchor="Yu12" target="https://doi.org/10.1145/2185376.2185387">
+          <front>
+            <title>Authority server selection in DNS caching resolvers</title>
+            <author initials="Y." surname="Yu"><organization>Organization Name</organization></author>
+            <author initials="D." surname="Wessels"><organization>Organization Name</organization></author>
+            <author initials="M." surname="Larson"><organization>Organization Name</organization></author>
+            <author initials="L." surname="Zhang"><organization>Organization Name</organization></author>
+            <date year="2012" month="April"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1145/2185376.2185387"/>
+        </reference>
+      <reference anchor="Karn87" target="https://doi.org/10.1145/118544.118549">
+          <front>
+            <title>Improving round-trip time estimates in reliable transport protocols</title>
+            <author initials="P." surname="Karn"><organization>Organization Name</organization></author>
+            <author initials="C." surname="Partridge"><organization>Organization Name</organization></author>
+            <date year="1991" month="November"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1145/118544.118549"/>
+        </reference>
+      <reference anchor="Sutton98" target="https://mitpress.mit.edu/books/reinforcement-learning-introduction">
+          <front>
+            <title>Reinforcement learning: An introduction</title>
+            <author initials="R.S." surname="Sutton"><organization>Organization Name</organization></author>
+            <author initials="A.G." surname="Barto"><organization>Organization Name</organization></author>
+            <date year="2018"/>
+          </front>
+        </reference>
+
+      <reference anchor="Zhang23" target="https://doi.org/10.1145/3576915.3616647">
+          <front>
+            <title>Silence is not Golden: Disrupting the Load Balancing of Authoritative DNS Servers</title>
+            <author initials="F." surname="Zhang"><organization>Organization Name</organization></author>
+            <author initials="B." surname="Liu"><organization>Organization Name</organization></author>
+            <author initials="E." surname="Alowaisheq"><organization>Organization Name</organization></author>
+            <author initials="J." surname="Chen"><organization>Organization Name</organization></author>
+            <author initials="C." surname="Lu"><organization>Organization Name</organization></author>
+            <author initials="L." surname="Song"><organization>Organization Name</organization></author>
+            <author initials="Y." surname="Ma"><organization>Organization Name</organization></author>
+            <author initials="Y." surname="Liu"><organization>Organization Name</organization></author>
+            <author initials="H." surname="Duan"><organization>Organization Name</organization></author>
+            <date year="2023" month="November"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1145/3576915.3616647"/>
+        </reference>
+      <reference anchor="Zhang22" target="https://doi.org/10.1007/978-3-030-98785-5_11">
+          <front>
+            <title>Measuring the Practical Effect of DNS Root Server Instances: A China-Wide Case Study</title>
+            <author initials="F." surname="Zhang"><organization>Organization Name</organization></author>
+            <author initials="C." surname="Lu"><organization>Organization Name</organization></author>
+            <author initials="B." surname="Liu"><organization>Organization Name</organization></author>
+            <author initials="H." surname="Duan"><organization>Organization Name</organization></author>
+            <author initials="Y." surname="Liu"><organization>Organization Name</organization></author>
+            <date year="2022"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1007/978-3-030-98785-5_11"/>
+        </reference>
+      <reference anchor="Hunter86">
+          <front>
+            <title>The exponentially weighted moving average</title>
+            <author initials="J.S." surname="Hunter"><organization>Organization Name</organization></author>
+            <date year="1986"/>
+          </front>
+          <refcontent>Journal of Quality Technology, 18(4), pp.203-210</refcontent>
+        </reference>
+      <reference anchor="Hay13" target="https://www.usenix.org/conference/woot13/workshop-program/presentation/hay">
+          <front>
+            <title>Subverting BIND's SRTT Algorithm Derandomizing NS Selection</title>
+            <author initials="R." surname="Hay"><organization>Organization Name</organization></author>
+            <author initials="J." surname="Kalechstein"><organization>Organization Name</organization></author>
+            <author initials="G." surname="Nakibly"><organization>Organization Name</organization></author>
+            <date year="2013"/>
+          </front>
+          <seriesInfo name="USENIX" value="7th Workshop on Offensive Technologies (WOOT 13)"/>
+        </reference>
+      <reference anchor="Herzberg12" target="https://doi.org/10.1007/978-3-642-33167-1_16">
+          <front>
+            <title>Security of Patched DNS</title>
+            <author initials="A." surname="Herzberg"><organization>Organization Name</organization></author>
+            <author initials="H." surname="Shulman"><organization>Organization Name</organization></author>
+            <date year="2012"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1007/978-3-642-33167-1_16"/>
+        </reference>
+      <reference anchor="BIND9" target="https://www.isc.org/bind/">
+          <front>
+            <title>BIND9</title>
+            <author initials="ISC" surname="ISC"><organization>Internet Systems Consortium</organization></author>
+          </front>
+        </reference>
+      <reference anchor="Unbound" target="https://www.nlnetlabs.nl/projects/unbound/about/">
+          <front>
+            <title>Unbound</title>
+            <author ><organization>NLnet Labs</organization></author>
+          </front>
+        </reference>
+      <reference anchor="Knot" target="https://www.knot-resolver.cz/">
+          <front>
+            <title>Knot Resolver</title>
+            <author ><organization>CZ.NIC</organization></author>
+          </front>
+        </reference>
+      <reference anchor="PowerDNS" target="https://www.powerdns.com/recursor.html">
+          <front>
+            <title>PowerDNS Recursor</title>
+            <author initials="Open-Xchange" surname="Open-Xchange"><organization>Open-Xchange</organization></author>
+          </front>
+        </reference>
+      <reference anchor="MicrosoftDNS" target="https://microsoft.fandom.com/wiki/Windows_Server_2022">
+          <front>
+            <title>Windows Server 2022</title>
+            <author initials="Microsoft" surname="Microsoft"><organization>Microsoft Corporation</organization></author>
+          </front>
+        </reference>
+      <reference anchor="ISC-LAME" target="https://kb.isc.org/docs/lame-servers-what-are-they-and-how-does-bind-deal-with-them">
+          <front>
+            <title>Lame servers - what are they and how does BIND deal with them?</title>
+            <author initials="ISC" surname="ISC"><organization>Internet Systems Consortium</organization></author>
+          </front>
+        </reference>
+      <reference anchor="CVE2021-25219" target="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-25219">
+          <front>
+            <title>CVE-2021-25219</title>
+            <author initials="The" surname="MITRE Corporation"><organization>MITRE Corporation</organization></author>
+          </front>
+        </reference>
+     </references>
+  </back>
+</rfc>
+
