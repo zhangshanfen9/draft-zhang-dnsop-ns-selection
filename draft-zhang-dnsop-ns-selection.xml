@@ -8,7 +8,7 @@
 
 <!ENTITY RFC1034 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.1034.xml">
 <!ENTITY RFC2182 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.2182.xml">
-<!ENTITY RFC6891 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.6891.xml">
+<!-- <!ENTITY RFC6891 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.6891.xml"> -->
 
 ]>
 <!--<?xml-stylesheet type='text/xsl' href='rfc2629.xslt' ?> -->
@@ -53,7 +53,7 @@
           <city>Beijing</city>
           <region></region>
           <code>100084</code>
-          <country>P. R. China</country>
+          <country>China</country>
         </postal>
         <email>zfl20@tsinghua.org.cn</email>
       </address>
@@ -67,7 +67,7 @@
           <city>Beijing</city>
           <region></region>
           <code>100102</code>
-          <country>P. R. China</country>
+          <country>China</country>
         </postal>
         <email>linjian.slj@alibaba-inc.com</email>
       </address>
@@ -144,23 +144,23 @@
       of nameserver selection. Additionally, a selection
       process may include vulnerable data structures, thereby enabling
       attackers to significantly degrade the performance of resolvers.</t>
-    <t>
-      Furthermore, no specification describes how resolvers should retry and
-      failover to alternate nameservers, when the selected nameserver is
-      unavailable or providing an error or unusable answer. Experience has
-      shown that there are poorly implemented DNS resolvers in the field
-      that do not employ robust retry and failover algorithms, which can
-      lead to availability problems when some of the authoritative servers
-      for a zone are unresponsive or giving erroneous responses.
-    </t>
+
+    <t>Furthermore, no specification describes how resolvers should retry and
+      failover to alternate nameservers, leading to two significant security issues. 
+      Firstly, the nameserver selection process by resolvers may result in unbounded behaviors, potentially overloading DNS servers with cyclical queries. This vulnerability could be exploited by attackers to launch DoS attacks. 
+      Secondly, resolvers may fail to handle the selection of nameserver that is
+      unavailable or providing an error or unusable answer. 
+      The implementations lack robust retry and failover algorithms, which can result in availability issues when some of the authoritative servers for a zone are unresponsive or providing incorrect responses.
+      </t>
+
 
       <t>This document offers guidance on developing secure nameserver
         selection algorithms for DNS resolvers. It starts by reviewing
         the nameserver selection implemented by widely used recursive DNS
         software (I1 - I6). Subsequently, the document details identified
-        vulnerabilities (V1 - V4), based on existing research, emphasizing
+        vulnerabilities (V1 - V5), based on existing research, emphasizing
         the security gaps in current practices. Lastly, the document recommends
-        options (R1- R3) to address these issues, emphasizes the requirement
+        options (R1- R4) to address these issues, emphasizes the requirement
         for resolvers to have robust retry and failover behavior, and
         restates the requirement for resolvers to sensibly bound their
         work.
@@ -224,14 +224,25 @@
       simplifying the manipulation of DNS responses. Researchers have highlighted
       that disrupting load balancing through nameserver selection manipulation
       is a critical step in executing advanced attacks, including acquiring
-      fraudulent TLS certificates <xref target="Dai21"/>.</t>
-    <t>
-        DNSSEC can successfully detect cache poisoning and other response
-        falsification attacks. However, even if DNS resolvers all implement
-        DNSSEC validation, these attacks are still quite practical today
-        given the poor uptake to date of DNSSEC signing in deployed
-        authoritative DNS infrastructure.
+      fraudulent TLS certificates <xref target="Dai21"/>.
+      DNSSEC can successfully detect cache poisoning and other response
+      falsification attacks. However, even if DNS resolvers all implement
+      DNSSEC validation, these attacks are still quite practical today
+      given the poor uptake to date of DNSSEC signing in deployed
+      authoritative DNS infrastructure.
     </t>
+
+    <t>
+      Additionally, no specification describes how resolvers should retry and
+      failover to alternate nameservers and cause two significant security issues. 
+      Firstly, the nameserver selection process of resolvers may result in unbounded behaviors, such as aggressive retries and unlimited references. 
+      Attackers can exploit these vulnerabilities by crafting NS records, leading to Denial of Service (DoS) attacks that overload DNS servers with cyclical queries. 
+      Secondly, resolvers may fail to handle the selection of nameserver that is
+      unavailable or providing an error or unusable answer. 
+      Experience has shown that there are poorly implemented DNS resolvers in the field
+      that do not employ robust retry and failover algorithms, which can lead to availability problems when some of the authoritative servers for a zone are unresponsive or giving erroneous responses.
+    </t>
+
     <t>In section 4, this document will summarize various attacks that exploit
       the implementation of nameserver selection. Such attacks can target both
       sides of nameservers and resolvers.</t>
@@ -468,11 +479,21 @@
         to considerable processing delays for incoming client queries.</t>
 
       </section>
+
+      <section title="V5: Cyclical Queries" anchor="V5">
+        <t><xref target="Moura21"/> and <xref target="Xu23"/> propose that attacks exploit the unbounded behaviors of NS selection to craft cyclical queries of resolvers, referred to as TsuName and TsuKing respectively. 
+        To ensure availability and robustness, some resolvers may involve unbounded retries and failovers in the NS selection, making attacks abusing cyclical queries possible.
+        Specifically, TsuName takes advantage of the cyclic dependencies that occur when the resolution of one domain name requires the resolution of another.
+        By exploiting the flaw in NS selection, attackers can manipulate the resolver to participate in loop queries for CNAME and NS references.
+        TsuKing, by exploiting additional vulnerabilities in NS selection, can cause a more significant overload to the victims. 
+        Due to the unbounded retry behavior and the inability to identify the RD flag, attackers can coordinate a number of vulnerable resolvers into a query loop to amplify queries hierarchically. Such attacks can efficiently amplify DNS traffic and pose a significant DoS threat to both resolvers and nameservers.
+        </t>
+      </section>
     </section>
 
 
     <section title="Recommendations" anchor="Recommendations">
-      <t>In this section, this document presents recommendations (R1 - R3) to address
+      <t>In this section, this document presents recommendations (R1 - R4) to address
           the vulnerabilities discussed earlier. To provide practical solutions,
           it references the current implementations of mainstream recursive DNS software
           (Unbound and Knot Resolver) rather than specifying an implementation from scratch.</t>
@@ -545,51 +566,35 @@
 
       </section>
 
-    </section>
+      <section title="R4: Proper Design for Retries and Failovers " anchor="R4">
+        <t>
+        This document suggests a proper design for retry and failover to address the issue of cyclic queries (V5) and ensure rebustness.
+        To ensure availability and robustness, the NS selection of resolvers contains retry and failover mechanism.
+        However, some unbounding designs can cause DNS resolvers to do more work than they reasonably expected to do to resolve a name, and lead to potential denial of service attacks. 
+        </t>
+        
+        <t>
+        Hence, resolvers should take concrete steps to sensibly bound the amount of work they are willing to perform (or the time spent doing that work) to service a request. 
+        As the sugguestions provided by <xref target="Moura21"/> and <xref target="Xu23"/>, this document recommends avoiding unlimited NS references and aggressive retries.
+        Also, related securtiy checks (e.g., RD flag) should be ensured during the process of NS selection.
+        This is a general principle that applies to the entirety of a resolvers work, not just to the work needed for nameserver selection.
+        We restate it here because implementers sometimes forget or neglect this important principle.
+        </t>
 
-  <section title="Robust Retry and Failover">
-    <t>
-        Implicit in the discussion of nameserver selection algorithms
-        in this document is the assumption that all DNS resolvers should
-        automatically retry and failover to other nameservers when they
-        encounter a nameserver that is unresponsive or providing an
-        erroneous response.
-    </t>
-    <t>
-        This document re-emphasizes the criticality of this requirement
-        in DNS resolver infrastructure. Not only must resolvers have
-        a robust retry and failover algorithm, but no middlebox or
-        network appliance interposed in the traffic path of resolvers
-        should interfere with their ability to perform retry and failover.
+        <t>
+        To avoid leading to another issue: lack of availability and robustness, we re-emphasizes here the importance of appropriate retries and failovers.             Implicit in the discussion of nameserver selection algorithms in this document is the assumption that all DNS resolvers should automatically retry and failover to other nameservers when they encounter a nameserver that is unresponsive or providing an erroneous response.
+        This document re-emphasizes the criticality of this requirement. 
+        Not only must resolvers have a robust retry and failover algorithm, but no middlebox or
+        network appliance interposed in the traffic path of resolvers should interfere with their ability to perform retry and failover.
         Experience has shown that there is a small percentage of deployed
         DNS resolvers in the field that do not robustly failover to alternate
         nameservers leading to availability issues.
-    </t>
-    <t>
-        Some of the specific conditions under which a DNS resolver should
-        retry other nameservers for a zone include an unresponsive namerserver,
-        a nameserver giving an erroneous response (any response code other
-        than NOERROR or NXDOMAIN), a nameserver giving responses that cannot
-        be accepted, such as responses with missing DNSSEC signatures when
-        they were expected to be signed, responses with bogus or expired
-        signatures, etc.
-    </t>
-  </section>
-
-  <section title="Bounding Work of the Resolver">
-    <t>
-        Incorrectly or maliciously configured authoritative DNS
-        infrastructure can cause DNS resolvers to do more work than
-        they reasonably expected to do to resolve a name, and lead to
-        potential denial of service attacks. Hence, resolvers should
-        take concrete steps to sensibly bound the amount of work they
-        are willing to perform (or the time spent doing that work) to
-        service a request. This is a general principle that applies to
-        the entirety of a resolvers work, not just to the work needed
-        for nameserver selection. We restate it here because implementers
-        sometimes forget or neglect this important principle.
-    </t>
-  </section>
+        </t>
+        <t>
+        Some of the specific conditions under which a DNS resolver should retry other nameservers for a zone include an unresponsive namerserver, a nameserver giving an erroneous response (any response code other than NOERROR or NXDOMAIN), a nameserver giving responses that cannot be accepted, such as responses with missing DNSSEC signatures when they were expected to be signed, responses with bogus or expired signatures, etc.
+        </t>
+      </section>
+    </section>
 
   <section title="Security Considerations">
     <t> TBD</t>
@@ -611,7 +616,7 @@
   <back>
 
     <references title="References">
-      &RFC1034; &RFC2182; &RFC6891;
+      &RFC1034; &RFC2182;
 
     <reference anchor="Gupta17" target="https://doi.org/10.1007/s00521-016-2317-5">
           <front>
@@ -672,7 +677,7 @@
           <seriesInfo name="DOI" value="10.1145/3131365.3131366"/>
         </reference>
 
-      <reference anchor="Ager10" target="https://doi.org/10.1145/1879141.1879144">
+      <!-- <reference anchor="Ager10" target="https://doi.org/10.1145/1879141.1879144">
           <front>
             <title>Comparing DNS resolvers in the wild</title>
             <author initials="B." surname="Ager"><organization>Organization Name</organization></author>
@@ -682,7 +687,7 @@
             <date year="2010"/>
           </front>
           <seriesInfo name="DOI" value="10.1145/1879141.1879144"/>
-        </reference>
+        </reference> -->
       <reference anchor="Yu12" target="https://doi.org/10.1145/2185376.2185387">
           <front>
             <title>Authority server selection in DNS caching resolvers</title>
@@ -739,6 +744,32 @@
             <date year="2022"/>
           </front>
           <seriesInfo name="DOI" value="10.1007/978-3-030-98785-5_11"/>
+        </reference>
+      <reference anchor="Xu23" target="https://doi.org/10.1145/3576915.3616668">
+          <front>
+            <title>TsuKing: Coordinating DNS Resolvers and Queries into Potent DoS Amplifiers</title>
+            <author initials="W." surname="Xu"><organization>Organization Name</organization></author>
+            <author initials="X." surname="Li"><organization>Organization Name</organization></author>
+            <author initials="C." surname="Lu"><organization>Organization Name</organization></author>
+            <author initials="B." surname="Liu"><organization>Organization Name</organization></author>
+            <author initials="H." surname="Duan"><organization>Organization Name</organization></author>
+            <author initials="J." surname="Zhang"><organization>Organization Name</organization></author>
+            <author initials="J." surname="Chen"><organization>Organization Name</organization></author>
+            <author initials="T." surname="Wan"><organization>Organization Name</organization></author>
+            <date year="2023"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1145/3576915.3616668"/>
+        </reference>
+      <reference anchor="Moura21" target="https://doi.org/10.1145/3487552.3487824">
+          <front>
+            <title>TsuNAME: exploiting misconfiguration and vulnerability to DDoS DNS</title>
+            <author initials="G." surname="Moura"><organization>Organization Name</organization></author>
+            <author initials="S." surname="Castro"><organization>Organization Name</organization></author>
+            <author initials="J." surname="Heidemann"><organization>Organization Name</organization></author>
+            <author initials="W." surname="Hardaker"><organization>Organization Name</organization></author>
+            <date year="2021"/>
+          </front>
+          <seriesInfo name="DOI" value="10.1145/3487552.3487824"/>
         </reference>
       <reference anchor="Hunter86">
           <front>
