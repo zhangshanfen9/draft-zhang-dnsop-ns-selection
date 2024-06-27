@@ -615,7 +615,7 @@
 
   <section title="Open Discussion">
 
-    <t>In earlier DNS specifications, resolvers were discouraged from aggressive behavior to prevent unnecessary transmissions. Consequently, the nameserver selection algorithm typically selects only one server to query, imposes restrictions on the time and scope of retries, and limits the frequency of probing. This conservative approach can hinder the resolver's ability to identify the "best" server to query. Some authoritative DNS operators have expressed concerns that resolvers can do more to find the optimal server. Intuitive proposals suggest that resolvers could enhance their performance for popular domains and adapt their aggressiveness based on current load conditions. </t>
+    <t>In early DNS specifications, resolvers were discouraged from aggressive behavior to prevent unnecessary transmissions. Consequently, the nameserver selection algorithm typically selects only one server to query, imposes restrictions on the time and scope of retries, and limits the frequency of probing. This conservative approach can hinder the resolver's ability to identify the "best" server to query. Some authoritative DNS operators have expressed concerns that resolvers can do more to find the optimal server. Intuitive proposals suggest that resolvers could enhance their performance for popular domains and adapt their aggressiveness based on current load conditions. </t>
 
   </section>
 
