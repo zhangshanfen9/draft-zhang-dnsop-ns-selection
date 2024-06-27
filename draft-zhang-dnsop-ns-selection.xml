@@ -59,6 +59,21 @@
       </address>
     </author>
 
+    <author fullname="Baojun Liu" initials="B" surname="Liu">
+      <organization>Tsinghua University</organization>
+      <address>
+          <postal>
+          <street>Shuangqing Rd, Haidian District</street>
+          <city>Beijing</city>
+          <region></region>
+          <code>100084</code>
+          <country>China</country>
+        </postal>
+        <email>lbj@tsinghua.edu.cn</email>
+      </address>
+    </author>
+
+
     <author fullname="Linjian Song" initials="L" surname="Song">
       <organization>Alibaba Cloud</organization>
       <address>
@@ -69,7 +84,7 @@
           <code>100102</code>
           <country>China</country>
         </postal>
-        <email>linjian.slj@alibaba-inc.com</email>
+        <email>songlinjian@gmail.com</email>
       </address>
     </author>
 
@@ -595,6 +610,15 @@
         </t>
       </section>
     </section>
+
+
+
+  <section title="Open Discussion">
+
+    <t>In earlier DNS specifications, resolvers were discouraged from aggressive behavior to prevent unnecessary transmissions. Consequently, the nameserver selection algorithm typically selects only one server to query, imposes restrictions on the time and scope of retries, and limits the frequency of probing. This conservative approach can hinder the resolver's ability to identify the "best" server to query. Some authoritative DNS operators have expressed concerns that resolvers can do more to find the optimal server. Intuitive proposals suggest that resolvers could enhance their performance for popular domains and adapt their aggressiveness based on current load conditions. </t>
+
+  </section>
+
 
   <section title="Security Considerations">
     <t> TBD</t>
