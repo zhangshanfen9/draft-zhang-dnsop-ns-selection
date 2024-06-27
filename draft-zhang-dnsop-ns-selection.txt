@@ -755,7 +755,7 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       June 2024
 
 6.  Open Discussion
 
-   In earlier DNS specifications, resolvers were discouraged from
+   In early DNS specifications, resolvers were discouraged from
    aggressive behavior to prevent unnecessary transmissions.
    Consequently, the nameserver selection algorithm typically selects
    only one server to query, imposes restrictions on the time and scope
