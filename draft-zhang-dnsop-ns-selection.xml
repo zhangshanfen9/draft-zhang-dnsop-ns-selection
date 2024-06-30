@@ -73,7 +73,6 @@
       </address>
     </author>
 
-
     <author fullname="Linjian Song" initials="L" surname="Song">
       <organization>Alibaba Cloud</organization>
       <address>
@@ -102,7 +101,7 @@
       </address>
     </author>
 
-    <date day="16" month="06" year="2024"/>
+    <date day="01" month="07" year="2024"/>
     <!-- Meta-data Declarations -->
 
     <area>Operations and Management Area</area>
@@ -161,13 +160,19 @@
       attackers to significantly degrade the performance of resolvers.</t>
 
     <t>Furthermore, no specification describes how resolvers should retry and
-      failover to alternate nameservers, leading to two significant security issues. 
-      Firstly, the nameserver selection process by resolvers may result in unbounded behaviors, potentially overloading DNS servers with cyclical queries. This vulnerability could be exploited by attackers to launch DoS attacks. 
-      Secondly, resolvers may fail to handle the selection of nameserver that is
-      unavailable or providing an error or unusable answer. 
-      The implementations lack robust retry and failover algorithms, which can result in availability issues when some of the authoritative servers for a zone are unresponsive or providing incorrect responses.
+      failover to alternate nameservers, and how resolvers should safely
+      manage the resources employed to speak to nameservers across multiple
+      zones in the process of answering queries. This can lead to two
+      two significant security issues. Firstly, the nameserver selection
+      process by resolvers may result in unbounded behaviors, potentially
+      overloading DNS servers with cyclical queries. This vulnerability
+      could be exploited by attackers to launch DoS attacks. Secondly,
+      resolvers may fail to handle the selection of nameserver that is
+      unavailable or providing an error or unusable answer. Implementations
+      that lack robust retry and failover algorithms, can result in
+      availability issues when some of the authoritative servers
+      for a zone are unresponsive or providing unusable responses.
       </t>
-
 
       <t>This document offers guidance on developing secure nameserver
         selection algorithms for DNS resolvers. It starts by reviewing
@@ -499,7 +504,7 @@
         <t><xref target="Moura21"/> and <xref target="Xu23"/> propose that attacks exploit the unbounded behaviors of NS selection to craft cyclical queries of resolvers, referred to as TsuName and TsuKing respectively. 
         To ensure availability and robustness, some resolvers may involve unbounded retries and failovers in the NS selection, making attacks abusing cyclical queries possible.
         Specifically, TsuName takes advantage of the cyclic dependencies that occur when the resolution of one domain name requires the resolution of another.
-        By exploiting the flaw in NS selection, attackers can manipulate the resolver to participate in loop queries for CNAME and NS references.
+        By exploiting the flaw in NS selection, attackers can manipulate the resolver to participate in queries loops for CNAME and NS references.
         TsuKing, by exploiting additional vulnerabilities in NS selection, can cause a more significant overload to the victims. 
         Due to the unbounded retry behavior and the inability to identify the RD flag, attackers can coordinate a number of vulnerable resolvers into a query loop to amplify queries hierarchically. Such attacks can efficiently amplify DNS traffic and pose a significant DoS threat to both resolvers and nameservers.
         </t>
@@ -581,32 +586,37 @@
 
       </section>
 
-      <section title="R4: Proper Design for Retries and Failovers " anchor="R4">
+      <section title="R4: Proper Design for Retries and Failovers and Bounding Work" anchor="R4">
         <t>
-        This document suggests a proper design for retry and failover to address the issue of cyclic queries (V5) and ensure rebustness.
-        To ensure availability and robustness, the NS selection of resolvers contains retry and failover mechanism.
+        This document suggests a proper design for retry and failover to address the issue of cyclic queries (V5) and ensure robustness.
+        To ensure availability and robustness, the NS selection of resolvers requires retry and failover mechanisms.
         However, some unbounding designs can cause DNS resolvers to do more work than they reasonably expected to do to resolve a name, and lead to potential denial of service attacks. 
         </t>
         
         <t>
         Hence, resolvers should take concrete steps to sensibly bound the amount of work they are willing to perform (or the time spent doing that work) to service a request. 
         As the sugguestions provided by <xref target="Moura21"/> and <xref target="Xu23"/>, this document recommends avoiding unlimited NS references and aggressive retries.
-        Also, related securtiy checks (e.g., RD flag) should be ensured during the process of NS selection.
-        This is a general principle that applies to the entirety of a resolvers work, not just to the work needed for nameserver selection.
-        We restate it here because implementers sometimes forget or neglect this important principle.
+        Also, related security checks (e.g., RD flag) should be ensured during the process of NS selection.
+        Note the notion of limiting work is a general principle that applies to the entirety of a resolvers work, not just to the work needed for nameserver selection.
         </t>
 
         <t>
-        To avoid leading to another issue: lack of availability and robustness, we re-emphasizes here the importance of appropriate retries and failovers.             Implicit in the discussion of nameserver selection algorithms in this document is the assumption that all DNS resolvers should automatically retry and failover to other nameservers when they encounter a nameserver that is unresponsive or providing an erroneous response.
-        This document re-emphasizes the criticality of this requirement. 
-        Not only must resolvers have a robust retry and failover algorithm, but no middlebox or
-        network appliance interposed in the traffic path of resolvers should interfere with their ability to perform retry and failover.
-        Experience has shown that there is a small percentage of deployed
-        DNS resolvers in the field that do not robustly failover to alternate
-        nameservers leading to availability issues.
+        To avoid leading to another issue: lack of availability and
+        robustness, we re-emphasizes here the importance of appropriate
+        retries and failovers. All DNS resolvers should automatically
+        retry and failover to other nameservers for a DNS zone when they
+        encounter a nameserver that is unresponsive or providing an
+        erroneous response. Not only must resolvers have a robust retry
+        and failover algorithm, but no middlebox or network appliance
+        interposed in the traffic path of resolvers should interfere with
+        their ability to perform retry and failover. Experience has shown
+        that there is a small percentage of deployed DNS resolvers in the
+        field that do not robustly failover to alternate nameservers leading
+        to availability issues. Obviously, the retry and failover mechanism
+        needs to be balanced with the requirement to bound the resolver's work.
         </t>
         <t>
-        Some of the specific conditions under which a DNS resolver should retry other nameservers for a zone include an unresponsive namerserver, a nameserver giving an erroneous response (any response code other than NOERROR or NXDOMAIN), a nameserver giving responses that cannot be accepted, such as responses with missing DNSSEC signatures when they were expected to be signed, responses with bogus or expired signatures, etc.
+        Some of the specific conditions under which a DNS resolver should retry other nameservers for a zone include an unresponsive namerserver, a nameserver giving an erroneous response (any response code other than NOERROR or NXDOMAIN), a nameserver giving responses that cannot be authenticated, such as responses with missing DNSSEC signatures when they were expected to be signed, responses with bogus or expired signatures, etc.
         </t>
       </section>
     </section>
