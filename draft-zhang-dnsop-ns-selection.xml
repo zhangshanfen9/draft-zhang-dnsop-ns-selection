@@ -101,7 +101,7 @@
       </address>
     </author>
 
-    <date day="01" month="07" year="2024"/>
+    <date day="02" month="07" year="2024"/>
     <!-- Meta-data Declarations -->
 
     <area>Operations and Management Area</area>
@@ -180,7 +180,7 @@
         software (I1 - I6). Subsequently, the document details identified
         vulnerabilities (V1 - V5), based on existing research, emphasizing
         the security gaps in current practices. Lastly, the document recommends
-        options (R1- R4) to address these issues, emphasizes the requirement
+        options (R1- R5) to address these issues, emphasizes the requirement
         for resolvers to have robust retry and failover behavior, and
         restates the requirement for resolvers to sensibly bound their
         work.
@@ -586,39 +586,32 @@
 
       </section>
 
-      <section title="R4: Proper Design for Retries and Failovers and Bounding Work" anchor="R4">
+      <section title="R4: Bounding Work" anchor="R4">
         <t>
-        This document suggests a proper design for retry and failover to address the issue of cyclic queries (V5) and ensure robustness.
-        To ensure availability and robustness, the NS selection of resolvers requires retry and failover mechanisms.
-        However, some unbounding designs can cause DNS resolvers to do more work than they reasonably expected to do to resolve a name, and lead to potential denial of service attacks. 
+        This document suggests a proper design that prevents cyclic queries (V5) and related attacks that negatively impact a resolver's resources.
+        Some unbounded designs can cause DNS resolvers to do more work than they reasonably expected to do to resolve a name, and lead to potential denial of service attacks.
         </t>
-        
+
         <t>
-        Hence, resolvers should take concrete steps to sensibly bound the amount of work they are willing to perform (or the time spent doing that work) to service a request. 
+        Resolvers should be able to prevent cyclical queries and abort with an error. More generally, resolvers should take concrete steps to sensibly bound the total amount of work they are willing to perform (or the time spent doing that work) to service a request.
         As the sugguestions provided by <xref target="Moura21"/> and <xref target="Xu23"/>, this document recommends avoiding unlimited NS references and aggressive retries.
         Also, related security checks (e.g., RD flag) should be ensured during the process of NS selection.
         Note the notion of limiting work is a general principle that applies to the entirety of a resolvers work, not just to the work needed for nameserver selection.
         </t>
+      </section>
 
+      <section title="R5: Proper Retry and Failover" anchor="R5">
         <t>
-        To avoid leading to another issue: lack of availability and
-        robustness, we re-emphasizes here the importance of appropriate
-        retries and failovers. All DNS resolvers should automatically
-        retry and failover to other nameservers for a DNS zone when they
-        encounter a nameserver that is unresponsive or providing an
-        erroneous response. Not only must resolvers have a robust retry
-        and failover algorithm, but no middlebox or network appliance
-        interposed in the traffic path of resolvers should interfere with
-        their ability to perform retry and failover. Experience has shown
-        that there is a small percentage of deployed DNS resolvers in the
-        field that do not robustly failover to alternate nameservers leading
-        to availability issues. Obviously, the retry and failover mechanism
-        needs to be balanced with the requirement to bound the resolver's work.
+        To avoid leading to another issue: lack of availability and robustness, we re-emphasizes here the importance of appropriate retries and failovers. All DNS resolvers should automatically retry and failover to other nameservers for a DNS zone when they encounter a nameserver that is unresponsive or providing an erroneous response. Not only must resolvers have a robust retry and failover algorithm, but no middlebox or network appliance interposed in the traffic path of resolvers should interfere with their ability to perform retry and failover. Experience has shown that there is a small percentage of deployed DNS resolvers in the field that do not robustly failover to alternate nameservers leading to availability issues. Importantly, the retry and failover mechanism needs to be balanced with the requirement to bound the resolver's work (R4).
+        </t>
+        <t>
+        A proper retry and failover design also makes resolvers robust against attacks where an adversary is attempting interfere with DNS responses from authoritative servers in an attempt to cause an outage (e.g. by blocking responses), or in an attempt to redirect clients (e.g. by modifying responses that could be detected with DNSSEC validation). As long as the attacker is not able inject these attacks along the traffic path to all or most of the authoritative servers for a zone, a resolver with robust retry and failover behavior should be able to successfully resolve names within that zone.
         </t>
         <t>
         Some of the specific conditions under which a DNS resolver should retry other nameservers for a zone include an unresponsive namerserver, a nameserver giving an erroneous response (any response code other than NOERROR or NXDOMAIN), a nameserver giving responses that cannot be authenticated, such as responses with missing DNSSEC signatures when they were expected to be signed, responses with bogus or expired signatures, etc.
         </t>
       </section>
+
     </section>
 
 
