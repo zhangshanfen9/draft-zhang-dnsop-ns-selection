@@ -8,7 +8,7 @@
 
 <!ENTITY RFC1034 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.1034.xml">
 <!ENTITY RFC2182 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.2182.xml">
-<!-- <!ENTITY RFC6891 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.6891.xml"> -->
+<!ENTITY RFC8906 SYSTEM "http://xml2rfc.ietf.org/public/rfc/bibxml/reference.RFC.8906.xml">
 
 ]>
 <!--<?xml-stylesheet type='text/xsl' href='rfc2629.xslt' ?> -->
@@ -115,7 +115,7 @@
       not currently standardized in the DNS protocol, and this has lead
       to variation in the  methods being used by implementations in the
       field. Recent research has shown that some of these implementations
-      suffer from significant security vulnerabilities. This document
+      suffer from security vulnerabilities. This document
       provides an in-depth analysis of nameserver selection utilized by
       mainstream DNS software and summarizes uncovered vulnerabilities.
       Furthermore, it provides recommendations to defend against these
@@ -135,8 +135,7 @@
     the function of the Internet. The increasing trend of relying
     on large DNS providers further underscores this significance.
     To achieve high resilience, DNS specifications mandate deploying
-    load balancing mechanisms across DNS nameservers, which are
-    responsible for providing the authoritative answers to DNS queries.
+    multiple candidates of DNS nameservers to provide authoritative answers.
      <xref target="RFC1034"/> REQUIRES that “every zone be available on at least
     two servers.” <xref target="RFC2182"/> further says that “nameservers MUST be
     placed at both topologically and geographically dispersed locations.”</t>
@@ -150,8 +149,8 @@
     <t>Lack of standardization in this area can lead to DNS implementations
       choosing poor methods that have significant security issues.
       By exploiting properties of these selection algorithms, attackers can
-      potentially disrupt the load balancing of nameservers. Such disruptions
-      can degrade the performance of DNS services, leading to a series of
+      potentially disrupt the resilience of nameservers.
+      Such disruptions can degrade the performance of DNS services, leading to a series of
       security concerns including denial-of-service (DoS) attacks, traffic
       hijacking, and cache poisoning <xref target="Dai21"/>. These
       vulnerabilities underscore the necessity for a secure implementation
@@ -191,9 +190,9 @@
     <section anchor="Threats" title="Threats of Exploiting Nameserver Selection">
 
       <t>To ensure stability and robustness, DNS specifications <xref target="RFC1034"/> <xref target="RFC2182"/>
-        require a “built-in” load balancing mechanism for nameservers.
+        require multiple candidates of nameservers.
         Specifically, a domain name should be configured with multiple
-        candidate nameservers, including both levels of NS records and IP addresses.
+        candidates, including both levels of NS records and IP addresses.
         Such candidates can be placed at both topologically and geographically
         dispersed locations. An example is shown in Figure 1. Typically, a recursive
         resolver measures the candidate nameservers while resolving the domain
@@ -227,7 +226,7 @@
       in the selection, they gain the ability to divert legitimate DNS traffic
       toward a specified nameserver (e.g., ns1-example.com or an IP address
       like 100.1.1.1, as shown in Figure 1). This manipulation can lead to
-      severe security issues:</t>
+      multiple security issues:</t>
 
     <t>One of the most straightforward consequences is the redirection of all
       legitimate traffic to a targeted server, causing overloads that bypass
@@ -242,7 +241,7 @@
       further attacks, such as DNS cache poisoning and traffic hijacking.
       This attack narrows the query path to a single, attacker-controlled route,
       simplifying the manipulation of DNS responses. Researchers have highlighted
-      that disrupting load balancing through nameserver selection manipulation
+      that disrupting the resilience and further eliminating candidates of nameservers
       is a critical step in executing advanced attacks, including acquiring
       fraudulent TLS certificates <xref target="Dai21"/>.
       DNSSEC can successfully detect cache poisoning and other response
@@ -398,16 +397,19 @@
 
       <section title="V1: Disablance Attack" anchor="V1">
       <t><xref target="Zhang23"/> reveals an attack named Disablance (Load Balancing Disabler)
-        to disrupt DNS load balancing at a low cost. Consequently, attackers can
-        efficiently overload authoritative DNS servers with legitimate traffic,
+        to disrupt the resilience of nameservers. Consequently, attackers can
+        efficiently overload nameservers with legitimate traffic,
         and even further disrupt DNS-based load balancing of upper-layer applications.
         Also, the uncovered attack derandomizes the NS selection and lowers the bar
         of traffic hijacking and cache poisoning.</t>
 
-      <t>This vulnerability stems from vulnerabilities in recursive resolvers and
-        authoritative nameservers, where attackers exploit recursive DNS software's
-        globally shared nameserver selection status and nameservers' disregard for
-        domains outside their authority. To execute the attack, adversaries create
+      <t>This vulnerability stems from vulnerabilities in authoritative nameservers and
+        recursive resolvers. Specifically, attackers can abuse a defensive strategy of nameservers,
+        which ignore queries for domain names that are out of authority.
+        Despite the strategy violating the DNS specification<xref target="RFC8906"/>,
+        it is widely adopted by real-world nameservers and vendors<xref target="Zhang23"/>.
+        With the pre-condition, attackers exploit recursive DNS software's
+        globally shared nameserver selection status. To execute the attack, adversaries create
         non-responsive DNS queries directed at a target resolver to make the resolver
         record the failure of nameservers. This is achieved by setting up DNS records
         for a domain under their control to point toward the hosting provider's
@@ -420,7 +422,7 @@
         thereby deprioritizing them in future resolutions. As a result, DNS requests from
         legitimate users will overwhelm the remaining nameserver (N1) for a period.</t>
 
-      <t>The risk posed by Disablance attacks is significant and widespread.
+      <t>The risk posed by Disablance attacks is widespread.
         First, three mainstream DNS implementations—BIND9 (I1), PowerDNS (I2),
         and Microsoft DNS (I5)—have been identified as exploitable to Disablance
         attacks. Furthermore, the analysis has revealed that 22.24% of the top 1
@@ -462,7 +464,7 @@
         packets. Similar to the impact of V2, this attack disrupt the non-deterministic
         of the NS selection, reducing the likelihood of resolvers querying alternative
         nameservers. As V1 and V2, this vulnerability can also lay the groundwork for
-        more severe attacks.</t>
+        advanced attacks.</t>
 
       <t>This vulnerability stems from the way BIND9 punishes the malformed responses.
         For example, a victim domain is assigned multiple nameservers (N1 - Nm).
@@ -477,25 +479,22 @@
         the choice of nameserver.</t>
       </section>
 
-      <section title="V4: Lame Cache" anchor="V4">
+      <section title="V4: Inefficient Cache" anchor="V4">
 
-      <t><xref target="CVE2021-25219"/> details an efficient attack toward BIND9’s (I1) lame cache,
-        which is a component in the process of nameserver selection. This attack differs
-        from the above attacks (V1 - V3) that disrupt the load balancing of nameservers.
-        Instead, it exploits a special cache of BIND9 acting as a recursive resolver.
-        As a result, the attack consumes the resources of a resolver and further
-        degrades the performance efficiently.</t>
+      <t>Attackers may abuse the recursive cache, which is a component in the process of nameserver selection, 
+        to consumes the resources of a resolver.
+        This attack differs from the above attacks (V1 - V3) that disrupt the resilience of nameservers directly.
+        Instead, it exploits inefficient designs of recursive cache and further degrades the performance of resolvers.</t>
 
-      <t>The core of this vulnerability lies in BIND9's handling of the lame cache.
+      <t>This document details a fixed vulnerability<xref target="CVE2021-25219"/> as an example. 
+        The core of this vulnerability lies in BIND9's handling of the lame cache.
         BIND9 identifies and records a lame nameserver, which cannot provide correct
         information on domain delegation <xref target="ISC-LAME"/>. Upon identifying a lame nameserver,
-        BIND9 will avoid selecting this nameserver for a predetermined period,
-        determined by the configurable "lame-ttl" parameter, which defaults to 600 seconds.
+        BIND9 will avoid selecting this nameserver for a predetermined period.
         However, the method of recording this information—using a &lt;QNAME, QTYPE&gt;
-        tuple for each entry—leaves it vulnerable. Attackers can initiate a series of
+        tuple for each entry. Attackers can initiate a series of
         malformed responses from nameservers, causing the resolver to devote most of
-        its CPU time to managing and checking the lame cache. This flawed implementation
-        allows its internal data structures to expand excessively, potentially leading
+        its CPU time to managing and checking the lame cache. This flawed implementation potentially leads
         to considerable processing delays for incoming client queries.</t>
 
       </section>
@@ -643,7 +642,7 @@
   <back>
 
     <references title="References">
-      &RFC1034; &RFC2182;
+      &RFC1034; &RFC2182; &RFC8906;
 
     <reference anchor="Gupta17" target="https://doi.org/10.1007/s00521-016-2317-5">
           <front>
