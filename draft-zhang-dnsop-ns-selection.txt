@@ -190,11 +190,11 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
            ...
 
            ;; ADDITIONAL SECTION
-           ns1-example.com. 172800 IN A 100.1.1.1
-           ns1-example.com. 172800 IN A 100.1.1.2
+           ns1-example.com. 172800 IN A 192.0.2.1
+           ns1-example.com. 172800 IN A 192.0.2.2
            ...
-           ns2-example.com. 172800 IN A 200.1.1.1
-           ns2-example.com. 172800 IN A 200.1.1.2
+           ns2-example.com. 172800 IN A 198.51.100.1
+           ns2-example.com. 172800 IN A 198.51.100.2
            ...
            ---
 
@@ -205,7 +205,7 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
    plays a critical role in DNS security.  When attackers exploit
    vulnerabilities in the selection, they gain the ability to divert
    legitimate DNS traffic toward a specified nameserver (e.g.,
-   ns1-example.com or an IP address like 100.1.1.1, as shown in
+   ns1-example.com or an IP address like 192.0.2.1, as shown in
    Figure 1).  This manipulation can lead to multiple security issues:
 
    One of the most straightforward consequences is the redirection of
