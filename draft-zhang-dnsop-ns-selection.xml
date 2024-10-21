@@ -161,8 +161,8 @@
     <t>Furthermore, no specification describes how resolvers should retry and
       failover to alternate nameservers, and how resolvers should safely
       manage the resources employed to speak to nameservers across multiple
-      zones in the process of answering queries. This can lead to two
-      two issues. Firstly, the nameserver selection
+      zones in the process of answering queries. This can lead to two issues. 
+      Firstly, the nameserver selection
       process by resolvers may result in unbounded behaviors, potentially
       overloading DNS servers with cyclical queries. This vulnerability
       could be exploited by attackers to launch DoS attacks. Secondly,
