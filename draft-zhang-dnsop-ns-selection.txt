@@ -138,15 +138,15 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    and failover to alternate nameservers, and how resolvers should
    safely manage the resources employed to speak to nameservers across
    multiple zones in the process of answering queries.  This can lead to
-   two two issues.  Firstly, the nameserver selection process by
-   resolvers may result in unbounded behaviors, potentially overloading
-   DNS servers with cyclical queries.  This vulnerability could be
-   exploited by attackers to launch DoS attacks.  Secondly, resolvers
-   may fail to handle the selection of nameserver that is unavailable or
-   providing an error or unusable answer.  Implementations that lack
-   robust retry and failover algorithms, can result in availability
-   issues when some of the authoritative servers for a zone are
-   unresponsive or providing unusable responses.
+   two issues.  Firstly, the nameserver selection process by resolvers
+   may result in unbounded behaviors, potentially overloading DNS
+   servers with cyclical queries.  This vulnerability could be exploited
+   by attackers to launch DoS attacks.  Secondly, resolvers may fail to
+   handle the selection of nameserver that is unavailable or providing
+   an error or unusable answer.  Implementations that lack robust retry
+   and failover algorithms, can result in availability issues when some
+   of the authoritative servers for a zone are unresponsive or providing
+   unusable responses.
 
    This document does not propose to standardize a precise nameserver
    selection algorithm.  However, it does offer recommendations on some
