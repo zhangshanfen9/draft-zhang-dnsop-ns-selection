@@ -40,7 +40,7 @@
 <?rfc comments="no" ?>
 <?rfc inline="yes" ?>
 
-<rfc category="info" docName="draft-zhang-dnsop-ns-selection-00" ipr="trust200902">
+<rfc category="info" docName="draft-zhang-dnsop-ns-selection-01" ipr="trust200902">
 
   <front>
     <title>Secure Nameserver Selection Algorithm for DNS Resolvers</title>
@@ -115,7 +115,7 @@
       </address>
     </author>
 
-    <date day="02" month="07" year="2024"/>
+    <date day="19" month="10" year="2024"/>
     <!-- Meta-data Declarations -->
 
     <area>Operations and Management Area</area>
@@ -132,7 +132,7 @@
       suffer from security vulnerabilities. This document
       provides an in-depth analysis of nameserver selection utilized by
       mainstream DNS software and summarizes uncovered vulnerabilities.
-      Furthermore, it provides recommendations to defend against these
+      It then provides recommendations for defending against these
       security and availability risks. Designers and operators of recursive
       resolvers can adopt these recommendations to improve the security and
       stability of the DNS.
@@ -149,7 +149,7 @@
     the function of the Internet. The increasing trend of relying
     on large DNS providers further underscores this significance.
     To achieve high resilience, DNS specifications mandate deploying
-    multiple candidates of DNS nameservers to provide authoritative answers.
+    multiple DNS nameservers to provide authoritative DNS answers.
      <xref target="RFC1034"/> REQUIRES that “every zone be available on at least
     two servers.” <xref target="RFC2182"/> further says that “nameservers MUST be
     placed at both topologically and geographically dispersed locations.”</t>
@@ -161,7 +161,7 @@
       overall efficiency <xref target="Yu12"/> <xref target="Mueller17"/>.
     </t>
     <t>Lack of standardization in this area can lead to DNS implementations
-      choosing poor methods that have significant security issues.
+      choosing methods that may have security issues.
       By exploiting properties of these selection algorithms, attackers can
       potentially disrupt the resilience of nameservers.
       Such disruptions can degrade the performance of DNS services, leading to a series of
@@ -175,8 +175,8 @@
     <t>Furthermore, no specification describes how resolvers should retry and
       failover to alternate nameservers, and how resolvers should safely
       manage the resources employed to speak to nameservers across multiple
-      zones in the process of answering queries. This can lead to two
-      two significant security issues. Firstly, the nameserver selection
+      zones in the process of answering queries. This can lead to two issues. 
+      Firstly, the nameserver selection
       process by resolvers may result in unbounded behaviors, potentially
       overloading DNS servers with cyclical queries. This vulnerability
       could be exploited by attackers to launch DoS attacks. Secondly,
@@ -187,8 +187,10 @@
       for a zone are unresponsive or providing unusable responses.
       </t>
 
-      <t>This document offers guidance on developing secure nameserver
-        selection algorithms for DNS resolvers. It starts by reviewing
+      <t>This document does not propose to standardize a precise nameserver
+        selection algorithm. However, it does offer recommendations on
+        some general principles that should be followed in developing such
+        algorithms. It starts by reviewing
         the nameserver selection implemented by widely used recursive DNS
         software (I1 - I6). Subsequently, the document details identified
         vulnerabilities (V1 - V5), based on existing research, emphasizing
@@ -267,18 +269,26 @@
 
     <t>
       Additionally, no specification describes how resolvers should retry and
-      failover to alternate nameservers and cause two significant security issues. 
-      Firstly, the nameserver selection process of resolvers may result in unbounded behaviors, such as aggressive retries and unlimited references. 
-      Attackers can exploit these vulnerabilities by crafting NS records, leading to Denial of Service (DoS) attacks that overload DNS servers with cyclical queries. 
-      Secondly, resolvers may fail to handle the selection of nameserver that is
-      unavailable or providing an error or unusable answer. 
-      Experience has shown that there are poorly implemented DNS resolvers in the field
-      that do not employ robust retry and failover algorithms, which can lead to availability problems when some of the authoritative servers for a zone are unresponsive or giving erroneous responses.
+      failover to alternate nameservers and this can lead to two issues.
+      Firstly, it is essential that resolvers retry other available
+      nameservers for a zone when the selected nameserver does not respond
+      or provides an unusable response. Experience has shown that there are
+      poorly implemented DNS resolvers in the field that do not employ robust
+      retry and failover algorithms, which can lead to availability problems
+      when some of the authoritative servers for a zone are unresponsive or
+      giving erroneous responses. It could also be the case that an
+      attacker has blocked the response from a selected nameserver or injected
+      an unusable response from the nameserver.
+      Secondly, the retry logic must be balanced with a requirement to
+      sensibly bound the work of the resolver. Unbounded behaviours such as
+      too aggressive retries, following too many references, etc may overload
+      the resolver. Attackers can exploit these vulnerabilities by specially
+      crafted zones and NS records, leading to Denial of Service (DoS) attacks.
     </t>
 
     <t>In section 4, this document will summarize various attacks that exploit
       the implementation of nameserver selection. Such attacks can target both
-      sides of nameservers and resolvers.</t>
+      authoritative nameservers and resolvers.</t>
 
     </section>
 
@@ -288,9 +298,9 @@
       widely used DNS implementations by referring to published research
       <xref target="Zhang23"/><xref target="Zhang22"/><xref target="Yu12"/><xref target="Mueller17"/>.
       It includes four open-source
-      recursive DNS software (I1 - I4) from white-box view, and one proprietary
-      DNS software (I5) from black-box view. Additionally, it delves into the
-      examination of open resolvers in the wild (I6).</t>
+      recursive DNS software (I1 - I4) from a white-box view, and one
+      proprietary DNS software (I5) from a black-box view. Additionally,
+      it delves into the examination of open resolvers in the wild (I6).</t>
 
       <section title="I1: BIND9" anchor="I1">
         <t>BIND9 <xref target="BIND9"/> utilizes a strategy to select the nameserver with the
