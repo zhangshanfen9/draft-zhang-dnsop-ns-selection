@@ -101,6 +101,20 @@
       </address>
     </author>
 
+    <author fullname="Geoff Huston" initials="G." surname="Huston">
+      <organization>APNIC</organization>
+      <address>
+        <postal>
+          <street>PO Box 3646</street>
+          <city>South Brisbane</city>
+          <region>QLD</region>
+          <code>4101</code>
+          <country>Australia</country>
+        </postal>
+        <email>gih@apnic.net</email>
+      </address>
+    </author>
+
     <date day="02" month="07" year="2024"/>
     <!-- Meta-data Declarations -->
 
@@ -179,7 +193,7 @@
         software (I1 - I6). Subsequently, the document details identified
         vulnerabilities (V1 - V5), based on existing research, emphasizing
         the security gaps in current practices. Lastly, the document recommends
-        options (R1- R5) to address these issues, emphasizes the requirement
+        options (R1- R6) to address these issues, emphasizes the requirement
         for resolvers to have robust retry and failover behavior, and
         restates the requirement for resolvers to sensibly bound their
         work.
@@ -512,7 +526,7 @@
 
 
     <section title="Recommendations" anchor="Recommendations">
-      <t>In this section, this document presents recommendations (R1 - R4) to address
+      <t>In this section, this document presents recommendations (R1 - R6) to address
           the vulnerabilities discussed earlier. To provide practical solutions,
           it references the current implementations of mainstream recursive DNS software
           (Unbound and Knot Resolver) rather than specifying an implementation from scratch.</t>
@@ -609,6 +623,25 @@
         <t>
         Some of the specific conditions under which a DNS resolver should retry other nameservers for a zone include an unresponsive namerserver, a nameserver giving an erroneous response (any response code other than NOERROR or NXDOMAIN), a nameserver giving responses that cannot be authenticated, such as responses with missing DNSSEC signatures when they were expected to be signed, responses with bogus or expired signatures, etc.
         </t>
+      </section>
+
+      <section title="R6: Deploy Diverse Dense Anycast Clouds" anchor="R6">
+        <t>While refining nameserver selection algorithms (R1-R5) remains important, 
+        over-reliance on resolver-side logic can still disable the robustness of nameservers. 
+        As analyzed in <xref target="Huston25"/>, recursive resolvers demonstrate 
+        inconsistent optimization behaviors in practice. This document recommends deploying multiple distinct anycast clouds for nameservers.</t>
+
+        <t>This infrastructure-first approach provides three key advantages: First, 
+        BGP-driven traffic steering automatically bypasses localized outages without 
+        resolver intervention. Second, attackers must simultaneously compromise 
+        multiple anycast clouds to disrupt service, significantly raising attack 
+        costs. Third, traffic naturally distributes across optimal paths without 
+        depending on resolver optimization logic.</t>
+
+        <t>Critically, anycast deployment should not replace algorithmic improvements 
+        but rather form a defense-in-depth strategy. When combined with secure 
+        selection mechanisms (R1-R5), dense anycast clouds create mutually reinforcing 
+        protections against NS selection attacks.</t>
       </section>
 
     </section>
@@ -860,11 +893,18 @@
             <author initials="ISC" surname="ISC"><organization>Internet Systems Consortium</organization></author>
           </front>
         </reference>
-      <reference anchor="CVE2021-25219" target="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-25219">
-          <front>
-            <title>CVE-2021-25219</title>
-            <author initials="The" surname="MITRE Corporation"><organization>MITRE Corporation</organization></author>
-          </front>
+        <reference anchor="CVE2021-25219" target="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-25219">
+            <front>
+              <title>CVE-2021-25219</title>
+              <author initials="The" surname="MITRE Corporation"><organization>MITRE Corporation</organization></author>
+            </front>
+          </reference>
+          <reference anchor="Huston25" target="https://www.potaroo.net/ispcol/2025-02/nameservers.html">
+            <front>
+              <title>DNS Nameservers: Service Platforms and Resilience</title>
+              <author initials="G." surname="Huston"><organization>APNIC</organization></author>
+              <date month="February" year="2025"/>
+            </front>
         </reference>
      </references>
   </back>
