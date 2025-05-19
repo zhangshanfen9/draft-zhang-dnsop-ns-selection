@@ -11,7 +11,7 @@ Expires: 22 April 2025                                           L. Song
                                                               Salesforce
                                                                G. Huston
                                                                    APNIC
-                                                             2 July 2024
+                                                         19 October 2024
 
 
         Secure Nameserver Selection Algorithm for DNS Resolvers
@@ -46,16 +46,16 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 3 January 2025.
+   This Internet-Draft will expire on 22 April 2025.
 
 
 
 
 
 
-Zhang, et al.            Expires 3 January 2025                 [Page 1]
+Zhang, et al.             Expires 22 April 2025                 [Page 1]
 
-Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
 
 
 Copyright Notice
@@ -76,31 +76,31 @@ Table of Contents
 
    1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3
    2.  Threats of Exploiting Nameserver Selection  . . . . . . . . .   4
-   3.  Implementations . . . . . . . . . . . . . . . . . . . . . . .   5
+   3.  Implementations . . . . . . . . . . . . . . . . . . . . . . .   6
      3.1.  I1: BIND9 . . . . . . . . . . . . . . . . . . . . . . . .   6
-     3.2.  I2: PowerDNS Recursor . . . . . . . . . . . . . . . . . .   6
+     3.2.  I2: PowerDNS Recursor . . . . . . . . . . . . . . . . . .   7
      3.3.  I3: Knot Resolver . . . . . . . . . . . . . . . . . . . .   7
-     3.4.  I4: Unbound . . . . . . . . . . . . . . . . . . . . . . .   7
+     3.4.  I4: Unbound . . . . . . . . . . . . . . . . . . . . . . .   8
      3.5.  I5: Microsoft DNS . . . . . . . . . . . . . . . . . . . .   8
      3.6.  I6: Open Resolvers in the Wild  . . . . . . . . . . . . .   8
    4.  Vulnerabilities . . . . . . . . . . . . . . . . . . . . . . .   8
-     4.1.  V1: Disablance Attack . . . . . . . . . . . . . . . . . .   8
-     4.2.  V2: Subverting SRTT Algorithm . . . . . . . . . . . . . .   9
+     4.1.  V1: Disablance Attack . . . . . . . . . . . . . . . . . .   9
+     4.2.  V2: Subverting SRTT Algorithm . . . . . . . . . . . . . .  10
      4.3.  V3: Spoofed Fragment  . . . . . . . . . . . . . . . . . .  10
-     4.4.  V4: Inefficient Cache . . . . . . . . . . . . . . . . . .  10
+     4.4.  V4: Inefficient Cache . . . . . . . . . . . . . . . . . .  11
      4.5.  V5: Cyclical Queries  . . . . . . . . . . . . . . . . . .  11
-   5.  Recommendations . . . . . . . . . . . . . . . . . . . . . . .  11
-     5.1.  R1: Balance between Optimization and Exploration  . . . .  11
-     5.2.  R2: Independent Nameserver Status . . . . . . . . . . . .  12
+   5.  Recommendations . . . . . . . . . . . . . . . . . . . . . . .  12
+     5.1.  R1: Balance between Optimization and Exploration  . . . .  12
+     5.2.  R2: Independent Nameserver Status . . . . . . . . . . . .  13
      5.3.  R3: Secure Cache of Nameserver Performance  . . . . . . .  13
-     5.4.  R4: Bounding Work . . . . . . . . . . . . . . . . . . . .  13
-     5.5.  R5: Proper Retry and Failover . . . . . . . . . . . . . .  13
-     5.6.  R6: Deploy Diverse Dense Anycast Clouds . . . . . . . . .  14
+     5.4.  R4: Bounding Work . . . . . . . . . . . . . . . . . . . .  14
+     5.5.  R5: Proper Retry and Failover . . . . . . . . . . . . . .  14
+     5.6.  R6: Deploy Diverse Dense Anycast Clouds . . . . . . . . .  15
    6.  Open Discussion . . . . . . . . . . . . . . . . . . . . . . .  15
-   7.  Security Considerations . . . . . . . . . . . . . . . . . . .  15
-   8.  IANA considerations . . . . . . . . . . . . . . . . . . . . .  15
-   9.  Acknowledgments . . . . . . . . . . . . . . . . . . . . . . .  15
-   10. References  . . . . . . . . . . . . . . . . . . . . . . . . .  15
+   7.  Security Considerations . . . . . . . . . . . . . . . . . . .  16
+   8.  IANA considerations . . . . . . . . . . . . . . . . . . . . .  16
+   9.  Acknowledgments . . . . . . . . . . . . . . . . . . . . . . .  16
+   10. References  . . . . . . . . . . . . . . . . . . . . . . . . .  16
    Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  18
 
 
@@ -119,11 +119,11 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    The robustness of the Domain Name System (DNS) is crucial for the
    function of the Internet.  The increasing trend of relying on large
    DNS providers further underscores this significance.  To achieve high
-   resilience, DNS specifications mandate deploying multiple candidates
-   of DNS nameservers to provide authoritative answers.  [RFC1034]
-   REQUIRES that “every zone be available on at least two servers.”
-   [RFC2182] further says that “nameservers MUST be placed at both
-   topologically and geographically dispersed locations.”
+   resilience, DNS specifications mandate deploying multiple DNS
+   nameservers to provide authoritative DNS answers.  [RFC1034] REQUIRES
+   that “every zone be available on at least two servers.” [RFC2182]
+   further says that “nameservers MUST be placed at both topologically
+   and geographically dispersed locations.”
 
    However, [RFC1034] vaguely suggests that resolvers should “find the
    best server to ask”, and no specification provides an exact algorithm
@@ -157,24 +157,25 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    of the authoritative servers for a zone are unresponsive or providing
    unusable responses.
 
-   This document offers guidance on developing secure nameserver
-   selection algorithms for DNS resolvers.  It starts by reviewing the
-   nameserver selection implemented by widely used recursive DNS
-   software (I1 - I6).  Subsequently, the document details identified
-   vulnerabilities (V1 - V5), based on existing research, emphasizing
+   This document does not propose to standardize a precise nameserver
+   selection algorithm.  However, it does offer recommendations on some
+   general principles that should be followed in developing such
+   algorithms.  It starts by reviewing the nameserver selection
+   implemented by widely used recursive DNS software (I1 - I6).
 
 
 
 Zhang, et al.             Expires 22 April 2025                 [Page 3]
 
-Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
 
 
-   the security gaps in current practices.  Lastly, the document
-   recommends options (R1- R6) to address these issues, emphasizes the
-   requirement for resolvers to have robust retry and failover behavior,
-   and restates the requirement for resolvers to sensibly bound their
-   work.
+   Subsequently, the document details identified vulnerabilities (V1 -
+   V5), based on existing research, emphasizing the security gaps in
+   current practices.  Lastly, the document recommends options (R1- R6)
+   to address these issues, emphasizes the requirement for resolvers to
+   have robust retry and failover behavior, and restates the requirement
+   for resolvers to sensibly bound their work.
 
 2.  Threats of Exploiting Nameserver Selection
 
@@ -217,15 +218,15 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
    One of the most straightforward consequences is the redirection of
    all legitimate traffic to a targeted server, causing overloads that
    bypass traditional DoS defense mechanisms designed to detect and
-   filter out malicious traffic.  It allows attackers to evade detection
 
 
 
-Zhang, et al.            Expires 3 January 2025                 [Page 4]
+Zhang, et al.             Expires 22 April 2025                 [Page 4]
 
-Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
 
 
+   filter out malicious traffic.  It allows attackers to evade detection
    with ease, since benign users generate all redirected traffic
    [Gupta17] [Mirkovic04] [Zargar13].  Beyond overloading DNS
    nameservers, attackers can also disrupt the load balancing of upper-
@@ -267,14 +268,10 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
    exploit the implementation of nameserver selection.  Such attacks can
    target both authoritative nameservers and resolvers.
 
-3.  Implementations
 
-   Before examining the specific vulnerabilities, this document reviews
-   widely used DNS implementations by referring to published research
-   [Zhang23][Zhang22][Yu12][Mueller17].  It includes four open-source
-   recursive DNS software (I1 - I4) from white-box view, and one
-   proprietary DNS software (I5) from black-box view.  Additionally, it
-   delves into the examination of open resolvers in the wild (I6).
+
+
+
 
 
 
@@ -284,6 +281,15 @@ Zhang, et al.             Expires 22 April 2025                 [Page 5]
 
 Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
 
+
+3.  Implementations
+
+   Before examining the specific vulnerabilities, this document reviews
+   widely used DNS implementations by referring to published research
+   [Zhang23][Zhang22][Yu12][Mueller17].  It includes four open-source
+   recursive DNS software (I1 - I4) from a white-box view, and one
+   proprietary DNS software (I5) from a black-box view.  Additionally,
+   it delves into the examination of open resolvers in the wild (I6).
 
 3.1.  I1: BIND9
 
@@ -323,6 +329,15 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    overall efficiency.  However, as discussed in Section 4, this
    approach can cause certain vulnerabilities.
 
+
+
+
+
+Zhang, et al.             Expires 22 April 2025                 [Page 6]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
+
 3.2.  I2: PowerDNS Recursor
 
    Like BIND9, PowerDNS Recursor [PowerDNS] maintains a shared status
@@ -333,14 +348,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    candidate nameservers, selecting the one with the lowest SRTT to send
    a query.  To facilitate rapid measurement of all candidates, the
    initial SRTT value is set at 0 milliseconds.  Besides, PowerDNS
-
-
-
-Zhang, et al.             Expires 22 April 2025                 [Page 6]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
-
-
    ensures all nameservers are periodically probed.  This is achieved by
    applying a decay factor to the SRTT of all servers during each query.
    It also resets the SRTT status of a nameserver periodically to
@@ -375,6 +382,18 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    priority, ensuring that the most optimal server is typically selected
    for queries.
 
+
+
+
+
+
+
+
+Zhang, et al.             Expires 22 April 2025                 [Page 7]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
+
 3.4.  I4: Unbound
 
    Unbound [Unbound], unlike other software, implements a special
@@ -389,13 +408,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    when its SRTT exceeds the least-latent one by more than 400ms.  This
    default behavior can be customized, allowing Unbound to select the
    best nameserver according to a configured probability.
-
-
-
-Zhang, et al.             Expires 22 April 2025                 [Page 7]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
-
 
    A further unique aspect of Unbound is maintaining nameserver status
    for each delegation individually.  Different from other software that
@@ -431,6 +443,13 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    targeting nameserver selection, which can affect current
    implementations of recursive resolvers.
 
+
+
+Zhang, et al.             Expires 22 April 2025                 [Page 8]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
+
 4.1.  V1: Disablance Attack
 
    [Zhang23] reveals an attack named Disablance (Load Balancing
@@ -445,14 +464,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    nameservers and recursive resolvers.  Specifically, attackers can
    abuse a defensive strategy of nameservers, which ignore queries for
    domain names that are out of authority.  Despite the strategy
-
-
-
-Zhang, et al.             Expires 22 April 2025                 [Page 8]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
-
-
    violating the DNS specification[RFC8906], it is widely adopted by
    real-world nameservers and vendors[Zhang23].  With the pre-condition,
    attackers exploit recursive DNS software's globally shared nameserver
@@ -481,6 +492,20 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    with 10 out of 14 well-known public DNS services, including
    Cloudflare and Quad9, are vulnerable to Disablance attacks.
 
+
+
+
+
+
+
+
+
+
+Zhang, et al.             Expires 22 April 2025                 [Page 9]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
+
 4.2.  V2: Subverting SRTT Algorithm
 
    [Hay13] presents an attack to manipulate BIND9's (I1) NS selection,
@@ -501,14 +526,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    of their domain, and the resolver queries C1 - Cn and then A.  Each
    query to the non-open nameservers incrementally lowers the SRTT of
    unqueried candidates, including N1.  When A responds to its query, it
-
-
-
-Zhang, et al.             Expires 22 April 2025                 [Page 9]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
-
-
    halts further domain resolution, preventing N1 from being updated in
    its SRTT.  In total, the SRTT of N1 has been reduced by n+1 times.
    By ensuring a large number of intermediary nameservers (n), attackers
@@ -524,6 +541,26 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    non-deterministic of the NS selection, reducing the likelihood of
    resolvers querying alternative nameservers.  As V1 and V2, this
    vulnerability can also lay the groundwork for advanced attacks.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Zhang, et al.             Expires 22 April 2025                [Page 10]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
 
    This vulnerability stems from the way BIND9 punishes the malformed
    responses.  For example, a victim domain is assigned multiple
@@ -557,14 +594,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    method of recording this information—using a <QNAME, QTYPE> tuple for
    each entry.  Attackers can initiate a series of malformed responses
    from nameservers, causing the resolver to devote most of its CPU time
-
-
-
-Zhang, et al.             Expires 22 April 2025                [Page 10]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
-
-
    to managing and checking the lame cache.  This flawed implementation
    potentially leads to considerable processing delays for incoming
    client queries.
@@ -581,6 +610,14 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    name requires the resolution of another.  By exploiting the flaw in
    NS selection, attackers can manipulate the resolver to participate in
    queries loops for CNAME and NS references.  TsuKing, by exploiting
+
+
+
+Zhang, et al.             Expires 22 April 2025                [Page 11]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
+
    additional vulnerabilities in NS selection, can cause a more
    significant overload to the victims.  Due to the unbounded retry
    behavior and the inability to identify the RD flag, attackers can
@@ -613,14 +650,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    for nameserver selection.  This algorithm maintains a balance between
    exploring various nameservers and exploiting the one deemed to have
    the highest priority.  In approximately 5% of queries, it will
-
-
-
-Zhang, et al.             Expires 22 April 2025                [Page 11]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
-
-
    randomly select a nameserver from the pool of available candidates.
    This randomness disrupts the deterministic selection process that
    attackers might exploit.  Similarly, Unbound's selection mechanism
@@ -630,6 +659,20 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    These approaches render efforts to manipulate nameserver selection
    less effective and can be implemented with minimal modifications to
    existing software that shares nameserver status.
+
+
+
+
+
+
+
+
+
+
+Zhang, et al.             Expires 22 April 2025                [Page 12]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
 
 5.2.  R2: Independent Nameserver Status
 
@@ -662,21 +705,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    findings indicate that adopting an independent nameserver status does
    not inherently create a vulnerability to DoS attacks.
 
-
-
-
-
-
-
-
-
-
-
-Zhang, et al.             Expires 22 April 2025                [Page 12]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
-
-
 5.3.  R3: Secure Cache of Nameserver Performance
 
    This document proposes a secure data structure for DNS caches to
@@ -692,6 +720,15 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    defense against manipulation of NS selection, thereby preserving the
    robustness and stability of DNS operation and contributing to overall
    Internet security.
+
+
+
+
+
+Zhang, et al.             Expires 22 April 2025                [Page 13]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
 
 5.4.  R4: Bounding Work
 
@@ -725,14 +762,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    failover.  Experience has shown that there is a small percentage of
    deployed DNS resolvers in the field that do not robustly failover to
    alternate nameservers leading to availability issues.  Importantly,
-
-
-
-Zhang, et al.             Expires 22 April 2025                [Page 13]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
-
-
    the retry and failover mechanism needs to be balanced with the
    requirement to bound the resolver's work (R4).
 
@@ -746,6 +775,16 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    servers for a zone, a resolver with robust retry and failover
    behavior should be able to successfully resolve names within that
    zone.
+
+
+
+
+
+
+Zhang, et al.             Expires 22 April 2025                [Page 14]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
 
    Some of the specific conditions under which a DNS resolver should
    retry other nameservers for a zone include an unresponsive
@@ -778,17 +817,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
    clouds create mutually reinforcing protections against NS selection
    attacks.
 
-
-
-
-
-
-
-Zhang, et al.            Expires 3 January 2025                [Page 14]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
-
-
 6.  Open Discussion
 
    In early DNS specifications, resolvers were discouraged from
@@ -802,6 +830,17 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
    Intuitive proposals suggest that resolvers could enhance their
    performance for popular domains and adapt their aggressiveness based
    on current load conditions.
+
+
+
+
+
+
+
+Zhang, et al.             Expires 22 April 2025                [Page 15]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
 
 7.  Security Considerations
 
@@ -834,17 +873,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
               computing environment", DOI 10.1007/s00521-016-2317-5,
               2017, <https://doi.org/10.1007/s00521-016-2317-5>.
 
-
-
-
-
-
-
-Zhang, et al.            Expires 3 January 2025                [Page 15]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
-
-
    [Hay13]    Hay, R., Kalechstein, J., and G. Nakibly, "Subverting
               BIND's SRTT Algorithm Derandomizing NS Selection",
               USENIX 7th Workshop on Offensive Technologies (WOOT 13),
@@ -862,6 +890,13 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
    [Huston25] Huston, G., "DNS Nameservers: Service Platforms and
               Resilience", February 2025,
               <https://www.potaroo.net/ispcol/2025-02/nameservers.html>.
+
+
+
+Zhang, et al.             Expires 22 April 2025                [Page 16]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
 
    [ISC-LAME] ISC, ISC., "Lame servers - what are they and how does BIND
               deal with them?", <https://kb.isc.org/docs/lame-servers-
@@ -888,19 +923,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
               DDoS DNS", DOI 10.1145/3487552.3487824, 2021,
               <https://doi.org/10.1145/3487552.3487824>.
 
-
-
-
-
-
-
-
-
-Zhang, et al.            Expires 3 January 2025                [Page 16]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
-
-
    [Mueller17]
               Müller, M., Moura, G.C.M., Schmidt, R. de O., and J.
               Heidemann, "Recursives in the Wild: Engineering
@@ -924,6 +946,13 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
               in DNS Servers: Failure to Communicate", BCP 231,
               RFC 8906, DOI 10.17487/RFC8906, September 2020,
               <https://www.rfc-editor.org/info/rfc8906>.
+
+
+
+Zhang, et al.             Expires 22 April 2025                [Page 17]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
+
 
    [Sutton98] Sutton, R.S. and A.G. Barto, "Reinforcement learning: An
               introduction", 2018, <https://mitpress.mit.edu/books/
@@ -949,14 +978,6 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
               DOI 10.1109/SURV.2013.031413.00127, 2013,
               <https://doi.org/10.1109/SURV.2013.031413.00127>.
 
-
-
-
-Zhang, et al.            Expires 3 January 2025                [Page 17]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
-
-
    [Zhang22]  Zhang, F., Lu, C., Liu, B., Duan, H., and Y. Liu,
               "Measuring the Practical Effect of DNS Root Server
               Instances: A China-Wide Case Study",
@@ -978,6 +999,15 @@ Authors' Addresses
    100084
    China
    Email: zfl20@tsinghua.org.cn
+
+
+
+
+
+
+Zhang, et al.             Expires 22 April 2025                [Page 18]
+
+Internet-Draft  Secure Nameserver Selection Algorithm fo    October 2024
 
 
    Baojun Liu
@@ -1006,13 +1036,6 @@ Authors' Addresses
    Email: shuque@gmail.com
 
 
-
-
-Zhang, et al.            Expires 3 January 2025                [Page 18]
-
-Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
-
-
    Geoff Huston
    APNIC
    PO Box 3646
@@ -1038,30 +1061,4 @@ Internet-Draft  Secure Nameserver Selection Algorithm fo       July 2024
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Zhang, et al.            Expires 3 January 2025                [Page 19]
+Zhang, et al.             Expires 22 April 2025                [Page 19]
