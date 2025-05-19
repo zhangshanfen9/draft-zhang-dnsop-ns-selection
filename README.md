@@ -8,8 +8,8 @@ Abstract
    Recent research has shown that some of these implementations suffer
    from security vulnerabilities.  This document provides an in-depth
    analysis of nameserver selection utilized by mainstream DNS software
-   and summarizes uncovered vulnerabilities.  Furthermore, it provides
-   recommendations to defend against these security and availability
+   and summarizes uncovered vulnerabilities.  It then provides
+   recommendations for defending against these security and availability
    risks.  Designers and operators of recursive resolvers can adopt
    these recommendations to improve the security and stability of the
    DNS.
